@@ -1,0 +1,52 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 OPR/119.0.0.0" version="27.1.6">
+  <diagram name="Página-1" id="iYr5bxBTpxnqCyXnKViq">
+    <mxGraphModel dx="1143" dy="620" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="VJUWUXarhN6fEdVKoFu1-7" target="VJUWUXarhN6fEdVKoFu1-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-7" value="&lt;font style=&quot;font-size: 8px;&quot;&gt;Se obtienen pedimentos de SCAII&lt;br&gt;(DB)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="VJUWUXarhN6fEdVKoFu1-8" target="VJUWUXarhN6fEdVKoFu1-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-8" value="&lt;font style=&quot;font-size: 8px;&quot;&gt;Se obtienen pedimentos de EFC (API)&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="VJUWUXarhN6fEdVKoFu1-9" target="VJUWUXarhN6fEdVKoFu1-12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-9" value="&lt;font style=&quot;font-size: 8px;&quot;&gt;Se eliminan Pedimentos en Comun&lt;/font&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="240" y="80" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="VJUWUXarhN6fEdVKoFu1-12" target="VJUWUXarhN6fEdVKoFu1-28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-12" value="&lt;font style=&quot;font-size: 8px;&quot;&gt;Quedan pedimentos que no se han cargado a EFC&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="80" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="VJUWUXarhN6fEdVKoFu1-14" target="VJUWUXarhN6fEdVKoFu1-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-14" value="&lt;font style=&quot;font-size: 8px;&quot;&gt;Se suben utilizando la &lt;/font&gt;&lt;font style=&quot;font-size: 8px;&quot;&gt;API de EFC&lt;/font&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="880" y="80" width="110" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-19" value="Se crea el Procesamiento via API con los siguientes paramentos.&lt;div&gt;En Espera&lt;/div&gt;&lt;div&gt;id_pedimento&lt;/div&gt;&lt;div&gt;id_tipo_procesamiento&lt;/div&gt;&lt;div&gt;id_servicio&lt;/div&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;fontSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="60" width="130" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-21" value="Se Agrega el servicio de procesamiento para cada uno de los servicios" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="910" y="10" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="VJUWUXarhN6fEdVKoFu1-28" target="VJUWUXarhN6fEdVKoFu1-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="VJUWUXarhN6fEdVKoFu1-28" value="&lt;span style=&quot;font-size: 8px;&quot;&gt;Se obtienen:&lt;/span&gt;&lt;div style=&quot;font-size: 8px;&quot;&gt;- Patentes&lt;/div&gt;&lt;div style=&quot;font-size: 8px;&quot;&gt;- Aduana&amp;nbsp;&lt;/div&gt;&lt;div style=&quot;font-size: 8px;&quot;&gt;- Tipo Operacion&lt;/div&gt;&lt;div style=&quot;font-size: 8px;&quot;&gt;- Clave pedimento&lt;/div&gt;&lt;div style=&quot;font-size: 8px;&quot;&gt;- Agente Aduanal&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="70" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
