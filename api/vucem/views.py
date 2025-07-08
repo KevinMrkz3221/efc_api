@@ -45,6 +45,10 @@ class VucemView(mixins.ListModelMixin,
         # Verificar que el usuario esté autenticado y tenga organización
         if not self.request.user.is_authenticated:
             return self.queryset.none()
+
+        if self.request.user.is_superuser:
+            # Si es superusuario, devolver todos los registros
+            return self.queryset.all()
         
         if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
             return self.queryset.none()

@@ -4,30 +4,10 @@ from api.record.models import Document  # Asegúrate de importar el modelo Docum
 from api.record.serializers import DocumentSerializer  
 
 class PedimentoSerializer(serializers.ModelSerializer):
-    documentos = DocumentSerializer(many=True, read_only=True, source='documents')
-    
     class Meta:
         model = Pedimento
         fields = '__all__'
         read_only_fields = ('created_at', 'updated_at', 'organizacion')
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        # Si es una actualización (PUT/PATCH), hacer opcionales ciertos campos
-        if self.instance is not None:
-            # Campos que no son requeridos en actualizaciones
-            optional_fields = [
-                'fecha_inicio', 
-                'fecha_fin', 
-                'importe_total', 
-                'saldo_disponible', 
-                'importe_pedimento'
-            ]
-            
-            for field_name in optional_fields:
-                if field_name in self.fields:
-                    self.fields[field_name].required = False
 
 class AgenteAduanalSerializer(serializers.ModelSerializer):
     class Meta:

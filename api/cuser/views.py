@@ -4,6 +4,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
 from rest_framework.exceptions import PermissionDenied
 from core.permissions import IsSameOrganizationAndAdmin, IsOwnerOrOrgAdmin
 
@@ -11,7 +14,7 @@ from .serializers import CustomUserSerializer
 from .models import CustomUser
 from api.logger.mixins import LoggingMixin
 
-class CustomUserViewSet(LoggingMixin, viewsets.ModelViewSet):
+class CustomUserViewSet(viewsets.ModelViewSet):
     """
     ViewSet for CustomUser model.
     """
@@ -21,11 +24,12 @@ class CustomUserViewSet(LoggingMixin, viewsets.ModelViewSet):
     my_tags = ['User Profile']
 
     def get_queryset(self):
-        # Verificar que el usuario esté autenticado y tenga organización
-        if not self.request.user.is_authenticated:
+        # Handle Swagger schema generation where user might be AnonymousUser
+        if getattr(self, 'swagger_fake_view', False):
             return CustomUser.objects.none()
         
-        if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
+        # Check if user is authenticated and has organization
+        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
             return CustomUser.objects.none()
             
         # Si es staff o admin, puede ver todos los usuarios de la organización
@@ -46,6 +50,14 @@ class CustomUserViewSet(LoggingMixin, viewsets.ModelViewSet):
             user.set_password(password)
             user.save()
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        """
+        Endpoint para obtener la información del usuario autenticado.
+        GET /api/v1/user/me/
+        """
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
 
 class ProfilePictureView(LoggingMixin, APIView):
     permission_classes = [IsAuthenticated, IsOwnerOrOrgAdmin]  # ¡Aquí usas el permiso!

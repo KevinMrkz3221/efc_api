@@ -8,13 +8,16 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from core.permissions import IsSameOrganizationAndAdmin,IsSameOrganizationDeveloper
+from core.permissions import IsSameOrganizationAndAdmin,IsSameOrganizationDeveloper, IsSuperUser
 from api.customs.models import Pedimento, AgenteAduanal, Aduana, ClavePedimento, TipoOperacion, ProcesamientoPedimento, Regimen
 from api.customs.serializers import PedimentoSerializer, AgenteAduanalSerializer, ClavePedimentoSerializer, AduanaSerializer, TipoOperacionSerializer, ProcesamientoPedimentoSerializer, RegimenSerializer
 from api.logger.mixins import LoggingMixin
 
+import requests
+
 
 class CustomPagination(PageNumberPagination):
+
     """
     Paginación personalizada con parámetros flexibles
     - Si no se especifica page_size, devuelve todos los resultados (sin paginación)
@@ -67,7 +70,7 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
     - /pedimentos/?page_size=10 → Devuelve los primeros 10
     - /pedimentos/?page_size=10&page=2 → Devuelve los pedimentos 11-20
     """
-    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper]
+    permission_classes = [IsAuthenticated,IsSameOrganizationDeveloper]
     serializer_class = PedimentoSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -80,7 +83,9 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
         # Verificar que el usuario esté autenticado y tenga organización
         if not self.request.user.is_authenticated:
             return Pedimento.objects.none()
-        
+        if self.request.user.is_superuser:
+            # Si es superusuario, devolver todos los pedimentos
+            return Pedimento.objects.all()
         if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
             return Pedimento.objects.none()
             
@@ -97,6 +102,40 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
         if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
             raise ValueError("Usuario no autenticado o sin organización")
         serializer.save(organizacion=self.request.user.organizacion)
+
+        try:
+            # Usar el nombre del servicio de Docker Compose en lugar de localhost
+            response = requests.request('POST', 'http://microservice:8001/api/v1/services/pedimento_completo', params={},
+                json={
+                    'estado': 1,
+                    'servicio': 3,
+                    'tipo_procesamiento': 2,
+                    'pedimento': str(serializer.instance.id),
+                    'organizacion': str(self.request.user.organizacion.id),
+                },
+                timeout=10
+            )
+            
+            # Verificar si la respuesta fue exitosa
+            if response.status_code == 200:
+                print(f"✅ Servicio FastAPI ejecutado exitosamente: {response.status_code}")
+                print(f"📄 Respuesta: {response.json()}")
+            elif response.status_code == 201:
+                print(f"✅ Recurso creado exitosamente en FastAPI: {response.status_code}")
+                print(f"📄 Respuesta: {response.json()}")
+            else:
+                print(f"⚠️  Servicio FastAPI respondió con error: {response.status_code}")
+                print(f"📄 Respuesta: {response.text}")
+                
+        except requests.exceptions.ConnectionError as e:
+            print(f"❌ No se pudo conectar al servicio FastAPI: {e}")
+            print("🔧 Verifica que el servicio FastAPI esté corriendo en http://localhost:8001")
+        except requests.exceptions.Timeout as e:
+            print(f"⏰ Timeout al conectar con el servicio FastAPI: {e}")
+        except requests.exceptions.RequestException as e:
+            print(f"🚨 Error de request al servicio FastAPI: {e}")
+        except Exception as e:
+            print(f"💥 Error inesperado al llamar al servicio FastAPI: {e}")
 
     my_tags = ['Pedimentos']
 
@@ -182,7 +221,7 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet):
     - /procesamientopedimentos/ → Devuelve TODOS los procesamientos
     - /procesamientopedimentos/?page_size=5 → Devuelve los primeros 5
     """
-    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper]
+    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper, IsSuperUser]
     serializer_class = ProcesamientoPedimentoSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, OrderingFilter]
@@ -198,6 +237,10 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet):
         if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
             return ProcesamientoPedimento.objects.none()
             
+        if self.request.user.is_superuser:
+            # Si es superusuario, devolver todos los procesamientos
+            return ProcesamientoPedimento.objects.all()
+
         return ProcesamientoPedimento.objects.filter(
             pedimento__organizacion=self.request.user.organizacion,
             pedimento__organizacion__is_active=True,

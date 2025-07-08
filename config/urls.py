@@ -82,4 +82,5 @@ urlpatterns = [
     path('api/v1/datastage/', include('api.datastage.urls')),
     path('api/v1/vucem/', include('api.vucem.urls')),
     path('api/v1/logger/', include('api.logger.urls')),  # Logger app
+    
 ] #+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

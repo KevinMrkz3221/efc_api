@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-*b7u3902e^k2&i=pg4hh0*^t=s%)$h9#6u0zjt64d6_ng#c*ei
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'host.docker.internal']
 
 # Application definition
 BASE_APPS = [
@@ -56,7 +56,8 @@ OWN_APPS = [
     'api.cuser',    
     'api.datastage',
     'api.vucem',
-    'api.logger',  # Logger app
+    'api.logger',
+    'api.notificaciones',
 ]
 
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + OWN_APPS
@@ -199,6 +200,7 @@ SWAGGER_SETTINGS = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://localhost:8001"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
