@@ -1,5 +1,18 @@
 from django.contrib import admin
-from .models import Aduana, ClavePedimento, TipoOperacion, Pedimento, AgenteAduanal, Patente, ProcesamientoPedimento, EstadoDeProcesamiento, TipoDeProcesamiento, Servicio, Regimen
+from .models import (
+    Aduana,
+    AgenteAduanal,
+    ClavePedimento,
+    EstadoDeProcesamiento,
+    Patente,
+    Pedimento,
+    ProcesamientoPedimento,
+    Regimen,
+    Servicio,
+    TipoDeProcesamiento,
+    TipoOperacion,
+    EDocument
+)
 
 class PatenteAdmin(admin.ModelAdmin):
     model = Patente
@@ -59,6 +72,12 @@ class RegimenAdmin(admin.ModelAdmin):
     list_display = ('id', 'clave', 'descripcion')
     search_fields = ('clave', 'descripcion')
 
+class EDocumentAdmin(admin.ModelAdmin):
+    model = EDocument
+    list_display = ('id', 'pedimento', 'numero_edocument', 'organizacion')
+    search_fields = ('numero_edocument',)
+    list_filter = ('pedimento', 'organizacion')
+
 admin.site.register(Aduana, AduanaAdmin)
 admin.site.register(ClavePedimento, ClavePedimentoAdmin)
 admin.site.register(TipoOperacion, TipoOperacionAdmin)
@@ -70,3 +89,4 @@ admin.site.register(EstadoDeProcesamiento, EstadoDeProcesamientoAdmin)
 admin.site.register(TipoDeProcesamiento, TipoDeProcesamientoAdmin)
 admin.site.register(Servicio, ServicioAdmin)
 admin.site.register(Regimen, RegimenAdmin)
+admin.site.register(EDocument, EDocumentAdmin)

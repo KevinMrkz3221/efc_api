@@ -78,8 +78,8 @@ class Pedimento(models.Model):
     tipo_operacion = models.BooleanField(default=False, help_text="Indica si es una operación de 1 (importación) o 0 (exportación)")
     clave_pedimento = models.CharField(max_length=10, blank=True, null=True, help_text="Clave del pedimento según la clasificación aduanera")
 
-    fecha_inicio = models.DateField(help_text="Fecha de inicio del pedimento")
-    fecha_fin = models.DateField(help_text="Fecha de fin del pedimento")
+    fecha_inicio = models.DateField(help_text="Fecha de inicio del pedimento", blank=True, null=True)
+    fecha_fin = models.DateField(help_text="Fecha de fin del pedimento", blank=True, null=True)
     fecha_pago = models.DateField(help_text="Fecha de pago del pedimento", blank=True, null=True)
     
     alerta = models.BooleanField(default=False, help_text="Indica si el pedimento tiene una alerta asociada")
@@ -89,10 +89,13 @@ class Pedimento(models.Model):
     
     curp_apoderado = models.CharField(max_length=18, blank=True, null=True, help_text="CURP del apoderado aduanal")
 
-    importe_total = models.DecimalField(max_digits=10, decimal_places=2)
-    saldo_disponible = models.DecimalField(max_digits=10, decimal_places=2)
-    importe_pedimento = models.DecimalField(max_digits=10, decimal_places=2)
+    importe_total = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Importe total del pedimento")
+    saldo_disponible = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Saldo disponible del pedimento")
+    importe_pedimento = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True, help_text="Importe del pedimento")
     existe_expediente = models.BooleanField(default=False)
+    remesas = models.BooleanField(default=False, help_text="Indica si el pedimento tiene remesas asociadas")
+
+    numero_partidas = models.PositiveIntegerField(default=0, help_text="Número de partidas asociadas al pedimento", blank=True, null=True)
     numero_operacion = models.CharField(max_length=20, blank=True, null=True, help_text="Número de operación del pedimento")
 
     created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación del registro")
@@ -106,6 +109,24 @@ class Pedimento(models.Model):
         verbose_name_plural = "Pedimentos"
         db_table = 'pedimento'
         ordering = ['pedimento']
+
+class EDocument(models.Model):
+    pedimento = models.ForeignKey(Pedimento, on_delete=models.CASCADE, related_name='documentos', help_text="Pedimento asociado al documento")
+    organizacion = models.ForeignKey('organization.Organizacion', on_delete=models.CASCADE, related_name='edocuments', help_text="Organización a la que pertenece el EDocument")
+    numero_edocument = models.CharField(max_length=20, unique=True, help_text="Número único del e-documento")
+    clave = models.CharField(max_length=10, blank=True, null=True, help_text="Clave del e-documento según la clasificación aduanera")
+    descripcion = models.CharField(max_length=200, blank=True, null=True, help_text="Descripción del documento")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación del documento")   
+    updated_at = models.DateTimeField(auto_now=True, help_text="Fecha de última actualización del documento")
+
+    def __str__(self):
+        return f"{self.descripcion} - {self.pedimento.pedimento}"
+
+    class Meta:
+        verbose_name = "EDocument"
+        verbose_name_plural = "EDocuments"
+        db_table = 'edocs'
+        ordering = ['created_at']
 
 class AgenteAduanal(models.Model):
     id_aduana = models.ForeignKey(Aduana, on_delete=models.CASCADE, related_name='agentes_aduanales')

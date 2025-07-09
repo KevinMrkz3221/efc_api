@@ -3,7 +3,16 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 # import necessary viewsets
-from .views import ViewSetPedimento, ViewSetAgenteAduanal, ViewSetAduana, ViewSetClavePedimento, ViewSetTipoOperacion, ViewSetProcesamientoPedimento, ViewSetRegimen
+from .views import (
+    ViewSetPedimento,
+    ViewSetAgenteAduanal,
+    ViewSetAduana,
+    ViewSetClavePedimento,
+    ViewSetTipoOperacion,
+    ViewSetProcesamientoPedimento,
+    ViewSetRegimen,
+    ViewSetEDocument
+)
 # from .views import YourViewSet  # Import your viewsets here
 
 router = DefaultRouter()
@@ -20,6 +29,7 @@ router.register(r'clavespedimento', ViewSetClavePedimento, basename='ClavePedime
 router.register(r'tiposoperacion', ViewSetTipoOperacion, basename='TipoOperacion')
 router.register(r'procesamientopedimentos', ViewSetProcesamientoPedimento, basename='ProcesamientoPedimento')
 router.register(r'regimenes', ViewSetRegimen, basename='Regimen')
+router.register(r'edocuments', ViewSetEDocument, basename='EDocument')
 
 # Import your viewsets here
 

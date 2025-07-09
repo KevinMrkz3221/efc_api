@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.customs.models import Pedimento, Aduana, AgenteAduanal, ClavePedimento, TipoOperacion, ProcesamientoPedimento, Regimen
+from api.customs.models import Pedimento, Aduana, AgenteAduanal, ClavePedimento, TipoOperacion, ProcesamientoPedimento, Regimen, EDocument
 from api.record.models import Document  # Asegúrate de importar el modelo Documento
 from api.record.serializers import DocumentSerializer  
 
@@ -45,3 +45,16 @@ class RegimenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Regimen
         fields = '__all__'
+
+class EDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EDocument
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si no es superusuario, hacer organizacion read_only
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and not request.user.is_superuser:
+            self.fields['organizacion'].read_only = True
