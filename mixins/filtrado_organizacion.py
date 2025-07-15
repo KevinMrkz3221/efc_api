@@ -26,8 +26,7 @@ class FiltroPorOrganizacionMixin:
             return self.model.objects.filter(**filtro)
 
         return self.model.objects.none()
-
-
+        
 # en core/mixins/organizacion.py o similar
 class OrganizacionFiltradaMixin:
     model = None  # Puedes sobreescribir esto en la vista

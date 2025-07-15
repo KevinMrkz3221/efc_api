@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import FileResponse, Http404
 from django.db import transaction
 
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.views import APIView
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -30,16 +31,54 @@ from core.permissions import (
 
 from mixins.filtrado_organizacion import DocumentosFiltradosMixin
 
+class CustomPagination(PageNumberPagination):
+
+    """
+    Paginación personalizada con parámetros flexibles
+    - Si no se especifica page_size, devuelve todos los resultados (sin paginación)
+    - Si se especifica page_size, usa paginación normal
+    """
+    page_size = None  # Sin paginación por defecto
+    page_size_query_param = 'page_size'
+    max_page_size = 1000  # Límite máximo de seguridad
+    page_query_param = 'page'
+    
+    def paginate_queryset(self, queryset, request, view=None):
+        """
+        Si no se especifica page_size en los parámetros, devolver None (sin paginación)
+        Si se especifica, usar paginación normal
+        """
+        # Verificar si se especificó page_size en la query
+        if self.page_size_query_param not in request.query_params:
+            # No hay page_size, devolver None para indicar "sin paginación"
+            return None
+        
+        # Hay page_size, usar paginación normal
+        try:
+            page_size = int(request.query_params[self.page_size_query_param])
+            if page_size <= 0:
+                return None
+            # Establecer el page_size temporalmente para esta request
+            self.page_size = min(page_size, self.max_page_size)
+        except (ValueError, TypeError):
+            return None
+            
+        return super().paginate_queryset(queryset, request, view)
+
 # Create your views here.
-class DocumentViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
+class DocumentViewSet(viewsets.ModelViewSet, DocumentosFiltradosMixin):
     """
     ViewSet for Document model.
     """
     permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     model = Document
     
+    pagination_class = CustomPagination
     serializer_class = DocumentSerializer
-    filterset_fields = ['extension', 'size', 'document_type']
+    # Habilitar filtro por pedimento
+    filterset_fields = ['extension', 'size', 'document_type', 'pedimento']
+
+    # Puedes filtrar por pedimento usando: /api/record/documents/?pedimento=<id>
     
     my_tags = ['Documents']
 
@@ -133,7 +172,7 @@ class DocumentViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
         uso.save()
         instance.delete()
     
-class ProtectedDocumentDownloadView(APIView, OrganizacionFiltradaMixin):
+class ProtectedDocumentDownloadView(APIView, DocumentosFiltradosMixin):
     permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     serializer_class = DocumentSerializer
     model = Document
@@ -146,13 +185,20 @@ class ProtectedDocumentDownloadView(APIView, OrganizacionFiltradaMixin):
         if not request.user.is_authenticated or not hasattr(request.user, 'organizacion'):
             raise Http404("Usuario no autenticado")
         
+
         try:
             doc = Document.objects.get(pk=pk)
         except Document.DoesNotExist:
             raise Http404("Documento no encontrado")
+
         # Verifica que el usuario pertenece a la organización del documento
+        
+        if self.request.user.is_superuser:
+            return FileResponse(doc.archivo.open('rb'))
+
         if doc.organizacion != request.user.organizacion:
             raise Http404("No autorizado")
+
         return FileResponse(doc.archivo.open('rb'))
     
 class BulkDownloadZipView(APIView):
@@ -160,6 +206,7 @@ class BulkDownloadZipView(APIView):
     my_tags = ['Documents']
 
     def post(self, request):
+        
         if not request.user.is_authenticated or not hasattr(request.user, 'organizacion'):
             return Response({"error": "Usuario no autenticado o sin organización"}, status=401)
         
@@ -168,7 +215,11 @@ class BulkDownloadZipView(APIView):
         if not isinstance(pks, list) or not pks:
             return Response({"error": "Debe proporcionar una lista de IDs de documentos en 'document_ids'."}, status=400)
 
-        docs = Document.objects.filter(pk__in=pks, organizacion=request.user.organizacion)
+        if self.request.user.is_superuser:
+            docs = Document.objects.filter(pk__in=pks)
+        else:
+            docs = Document.objects.filter(pk__in=pks, organizacion=request.user.organizacion)
+
         if docs.count() != len(pks):
             return Response({"error": "Uno o más documentos no existen o no pertenecen a su organización."}, status=404)
 
@@ -187,6 +238,7 @@ class BulkDownloadZipView(APIView):
         safe_name = slugify(pedimento_nombre)
         response = HttpResponse(buffer, content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename={safe_name or "documentos"}.zip'
+        
         return response
 
 

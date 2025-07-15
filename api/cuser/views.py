@@ -6,6 +6,8 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+
 
 from rest_framework.exceptions import PermissionDenied
 from core.permissions import (
@@ -21,11 +23,48 @@ from api.logger.mixins import LoggingMixin
 from api.vucem.models import Vucem
 from mixins.filtrado_organizacion import OrganizacionFiltradaMixin
 
+
+class CustomPagination(PageNumberPagination):
+
+    """
+    Paginación personalizada con parámetros flexibles
+    - Si no se especifica page_size, devuelve todos los resultados (sin paginación)
+    - Si se especifica page_size, usa paginación normal
+    """
+    page_size = None  # Sin paginación por defecto
+    page_size_query_param = 'page_size'
+    max_page_size = 1000  # Límite máximo de seguridad
+    page_query_param = 'page'
+    
+    def paginate_queryset(self, queryset, request, view=None):
+        """
+        Si no se especifica page_size en los parámetros, devolver None (sin paginación)
+        Si se especifica, usar paginación normal
+        """
+        # Verificar si se especificó page_size en la query
+        if self.page_size_query_param not in request.query_params:
+            # No hay page_size, devolver None para indicar "sin paginación"
+            return None
+        
+        # Hay page_size, usar paginación normal
+        try:
+            page_size = int(request.query_params[self.page_size_query_param])
+            if page_size <= 0:
+                return None
+            # Establecer el page_size temporalmente para esta request
+            self.page_size = min(page_size, self.max_page_size)
+        except (ValueError, TypeError):
+            return None
+            
+        return super().paginate_queryset(queryset, request, view)
+
+
 class CustomUserViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
     """
     ViewSet for CustomUser model.
     """
     permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+    pagination_class = CustomPagination
     model = CustomUser
     serializer_class = CustomUserSerializer
     filterset_fields = ['username', 'email', 'first_name', 'last_name', 'organizacion', 'is_importador']

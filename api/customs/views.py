@@ -183,7 +183,7 @@ class ViewSetTipoOperacion(LoggingMixin, viewsets.ModelViewSet):
         
         serializer.save()
 
-class ViewSetProcesamientoPedimento(viewsets.ModelViewSet):
+class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
     """
     ViewSet for ProcesamientoPedimento model.
     Soporta paginación, filtros y búsqueda.

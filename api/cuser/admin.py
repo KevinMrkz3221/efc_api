@@ -21,7 +21,7 @@ class CustomUserAdmin(UserAdmin):
     form = CustomUserChangeForm
     model = CustomUser
 
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'organizacion')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'is_importador', 'organizacion')
     list_filter = ('is_staff', 'is_active', 'organizacion')
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('username',)
@@ -29,7 +29,7 @@ class CustomUserAdmin(UserAdmin):
     # Fieldsets para editar un usuario
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Información personal', {'fields': ('first_name', 'last_name', 'email', 'organizacion', 'profile_picture')}),
+        ('Información personal', {'fields': ('first_name', 'last_name', 'email', 'organizacion', 'profile_picture', 'is_importador', 'rfc')}),
         ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Fechas importantes', {'fields': ('last_login', 'date_joined')}),
     )
@@ -42,7 +42,7 @@ class CustomUserAdmin(UserAdmin):
                 'username', 'email', 'first_name', 'last_name',
                 'organizacion', 'profile_picture',
                 'password1', 'password2',
-                'is_staff', 'is_active'
+                'is_staff', 'is_active', 'is_importador'
             )
         }),
     )
