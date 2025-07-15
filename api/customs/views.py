@@ -4,33 +4,32 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from core.permissions import IsSameOrganizationAndAdmin,IsSameOrganizationDeveloper, IsSuperUser
+
+from core.permissions import (
+    IsSameOrganization, 
+    IsSameOrganizationDeveloper,
+    IsSameOrganizationAndAdmin,
+    IsSuperUser
+)
 from api.customs.models import (
     Pedimento,
-    AgenteAduanal,
-    Aduana,
-    ClavePedimento,
     TipoOperacion,
     ProcesamientoPedimento,
-    Regimen,
     EDocument,
 )
 from api.customs.serializers import (
     PedimentoSerializer,
-    AgenteAduanalSerializer,
-    AduanaSerializer,
-    ClavePedimentoSerializer,
     TipoOperacionSerializer,
     ProcesamientoPedimentoSerializer,
-    RegimenSerializer,
     EDocumentSerializer,
 )
 from api.logger.mixins import LoggingMixin
-
+from mixins.filtrado_organizacion import OrganizacionFiltradaMixin
 import requests
 
 
@@ -68,7 +67,7 @@ class CustomPagination(PageNumberPagination):
             
         return super().paginate_queryset(queryset, request, view)
 # Create your views here.
-class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
+class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltradaMixin): # Pendiente de permisos de creacion
     """
     ViewSet for Pedimento model.
     Soporta paginación, filtros y búsqueda.
@@ -88,10 +87,11 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
     - /pedimentos/?page_size=10 → Devuelve los primeros 10
     - /pedimentos/?page_size=10&page=2 → Devuelve los pedimentos 11-20
     """
-    permission_classes = [IsAuthenticated, IsSuperUser | IsSameOrganizationDeveloper]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     serializer_class = PedimentoSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    model = Pedimento
 
     filterset_fields = ['patente', 'aduana', 'tipo_operacion', 'clave_pedimento']
     search_fields = ['pedimento', 'contribuyente', 'agente_aduanal']
@@ -99,22 +99,7 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        # Verificar que el usuario esté autenticado y tenga organización
-        if not self.request.user.is_authenticated:
-            return Pedimento.objects.none()
-
-        if self.request.user.is_superuser:
-            # Si es superusuario, devolver todos los pedimentos
-            return Pedimento.objects.all()
-
-        if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
-            return Pedimento.objects.none()
-            
-        return Pedimento.objects.filter(
-            organizacion=self.request.user.organizacion,
-            organizacion__is_active=True,
-            organizacion__is_verified=True
-        )
+        return self.get_queryset_filtrado_por_organizacion() # Tambien filtra por importador
 
     def perform_create(self, serializer):
         """
@@ -160,59 +145,12 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet):
 
     my_tags = ['Pedimentos']
 
-class ViewSetAgenteAduanal(LoggingMixin, viewsets.ModelViewSet):
-    """
-    ViewSet for AgenteAduanal model.
-    """
-    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper]
-    queryset = AgenteAduanal.objects.all()
-    serializer_class = AgenteAduanalSerializer
-    pagination_class = CustomPagination
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['id_aduana', 'id_patente']
-    search_fields = ['nombre', 'patente']
-    ordering_fields = ['nombre', 'patente']
-    ordering = ['nombre']
-
-    my_tags = ['Agentes_Aduanales']
-
-class ViewSetAduana(LoggingMixin, viewsets.ModelViewSet):
-    """
-    ViewSet for Aduana model.
-    """
-    permission_classes = [IsAuthenticated]
-    queryset = Aduana.objects.all()
-    serializer_class = AduanaSerializer
-    pagination_class = CustomPagination
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['aduana']
-    search_fields = ['nombre', 'aduana']
-    ordering_fields = ['nombre', 'aduana']
-    ordering = ['nombre']
-    
-    my_tags = ['Aduanas']
-
-class ViewSetClavePedimento(LoggingMixin, viewsets.ModelViewSet):
-    """
-    ViewSet for ClavePedimento model.
-    """
-    permission_classes = [IsAuthenticated]
-    queryset = ClavePedimento.objects.all()
-    serializer_class = ClavePedimentoSerializer
-    pagination_class = CustomPagination
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['clave']
-    search_fields = ['clave', 'descripcion']
-    ordering_fields = ['clave', 'descripcion']
-    ordering = ['clave']
-    
-    my_tags = ['Claves_Pedimento']
-
 class ViewSetTipoOperacion(LoggingMixin, viewsets.ModelViewSet):
     """
     ViewSet for TipoOperacion model.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+
     queryset = TipoOperacion.objects.all()
     serializer_class = TipoOperacionSerializer
     pagination_class = CustomPagination
@@ -223,6 +161,27 @@ class ViewSetTipoOperacion(LoggingMixin, viewsets.ModelViewSet):
     ordering = ['tipo']
     
     my_tags = ['Tipos_Operacion']
+
+    def perform_create(self, serializer):
+        """
+        Asigna automáticamente la organización del usuario autenticado al crear un tipo de operación.
+        """
+        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
+            raise ValueError("Usuario no autenticado o sin organización")
+        # Solo el supoerusuario puede crear tipos de operación
+        if not self.request.user.is_superuser:
+            raise PermissionDenied("Solo los superusuarios pueden crear tipos de operación")
+        
+        serializer.save(organizacion=self.request.user.organizacion)
+
+    def perform_update(self, serializer):
+        """
+        Solo el superusuario puede actualizar tipos de operación.
+        """
+        if not self.request.user.is_superuser:
+            raise PermissionDenied("Solo los superusuarios pueden actualizar tipos de operación")
+        
+        serializer.save()
 
 class ViewSetProcesamientoPedimento(viewsets.ModelViewSet):
     """
@@ -245,28 +204,14 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper, IsSuperUser]
     serializer_class = ProcesamientoPedimentoSerializer
     pagination_class = CustomPagination
+    model = ProcesamientoPedimento
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['pedimento', 'estado', 'servicio', 'tipo_procesamiento']
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-created_at']
     
     def get_queryset(self):
-        # Verificar que el usuario esté autenticado y tenga organización
-        if not self.request.user.is_authenticated:
-            return ProcesamientoPedimento.objects.none()
-        
-        if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
-            return ProcesamientoPedimento.objects.none()
-            
-        if self.request.user.is_superuser:
-            # Si es superusuario, devolver todos los procesamientos
-            return ProcesamientoPedimento.objects.all()
-
-        return ProcesamientoPedimento.objects.filter(
-            pedimento__organizacion=self.request.user.organizacion,
-            pedimento__organizacion__is_active=True,
-            pedimento__organizacion__is_verified=True
-        )
+        return self.get_queryset_filtrado_por_organizacion()
     
     def perform_create(self, serializer):
         """
@@ -274,32 +219,27 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet):
         """
         if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
             raise ValueError("Usuario no autenticado o sin organización")
-        serializer.save(organizacion=self.request.user.organizacion)
+        if not self.request.user.is_superuser or ((self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists()) :
+            raise PermissionDenied("No tienes permisos para crear procesamientos de pedimentos")
+        
+        if self.request.user.is_superuser:
+            # Si es superusuario, permite crear sin organización
+            serializer.save()
+        
+        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Si es developer, admin o user, asigna la organización del usuario
+            if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
+                raise ValueError("Usuario sin organización")
+            
+            serializer.save(organizacion=self.request.user.organizacion)
     
     my_tags = ['Procesamientos_Pedimentos']
 
-class ViewSetRegimen(LoggingMixin, viewsets.ModelViewSet):
-    """
-    ViewSet for Regimen model.
-    """
-    permission_classes = [IsAuthenticated]
-    queryset = Regimen.objects.all()
-    serializer_class = RegimenSerializer
-    pagination_class = CustomPagination
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['clave']
-    search_fields = ['clave', 'descripcion']
-    ordering_fields = ['clave', 'descripcion']
-    ordering = ['clave']
-    
-    my_tags = ['Regimenes']
-
-class ViewSetEDocument(LoggingMixin, viewsets.ModelViewSet):
+class ViewSetEDocument(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltradaMixin):
     """
     ViewSet for EDocument model.
     """
-    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper]
-    
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     serializer_class = EDocumentSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -307,26 +247,11 @@ class ViewSetEDocument(LoggingMixin, viewsets.ModelViewSet):
     search_fields = ['numero_edocument', 'descripcion', 'organizacion']
     ordering_fields = ['created_at', 'updated_at', 'numero_edocument']
     ordering = ['-created_at']
-    
+    model = EDocument
     my_tags = ['EDocuments']
 
     def get_queryset(self):
-        # Verificar que el usuario esté autenticado y tenga organización
-        if not self.request.user.is_authenticated:
-            return EDocument.objects.none()
-        
-        if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
-            return EDocument.objects.none()
-            
-        if self.request.user.is_superuser:
-            # Si es superusuario, devolver todos los e-documents
-            return EDocument.objects.all()
-
-        return EDocument.objects.filter(
-            organizacion=self.request.user.organizacion,
-            organizacion__is_active=True,
-            organizacion__is_verified=True
-        )
+        return self.get_queryset_filtrado_por_organizacion()
 
     def perform_create(self, serializer):
         """
@@ -337,12 +262,35 @@ class ViewSetEDocument(LoggingMixin, viewsets.ModelViewSet):
             raise ValueError("Usuario no autenticado")
         
         # Si es superusuario y se especifica organizacion en los datos validados
-        if self.request.user.is_superuser and 'organizacion' in serializer.validated_data:
+        if self.request.user.is_superuser:
             # Permitir que el superusuario especifique la organización
             serializer.save()
-        else:
+        
+        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
             # Para usuarios normales, usar siempre su organización
             if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
                 raise ValueError("Usuario sin organización")
             serializer.save(organizacion=self.request.user.organizacion)
+        
+        raise ValueError("Usuario no autenticado o sin permisos para crear EDocument")
+
+    def perform_update(self, serializer):
+        """
+        Permite actualizar un EDocument, pero solo si el usuario es superusuario o pertenece a la misma organización.
+        """
+        if not self.request.user.is_authenticated:
+            raise ValueError("Usuario no autenticado")
+        
+        # Si es superusuario, permite actualizar sin restricciones
+        if self.request.user.is_superuser:
+            serializer.save()
+            return
+        
+        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Para usuarios normales, usar siempre su organización
+            if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
+                raise ValueError("Usuario sin organización")
+            serializer.save(organizacion=self.request.user.organizacion)
+
+        raise ValueError("Usuario no autenticado o sin permisos para actualizar EDocument")
 

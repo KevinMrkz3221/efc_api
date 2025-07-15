@@ -10,7 +10,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 
-from core.permissions import IsSameOrganization
 from .serializers import DocumentSerializer
 from .models import Document
 from api.organization.models import UsoAlmacenamiento
@@ -19,14 +18,25 @@ import zipfile
 from django.utils.text import slugify
 from django.http import HttpResponse
 from rest_framework.decorators import action
+from datetime import timedelta
+from django.utils import timezone
 
+from core.permissions import (
+    IsSameOrganization, 
+    IsSameOrganizationDeveloper,
+    IsSameOrganizationAndAdmin,
+    IsSuperUser
+)
+
+from mixins.filtrado_organizacion import DocumentosFiltradosMixin
 
 # Create your views here.
-class DocumentViewSet(viewsets.ModelViewSet):
+class DocumentViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
     """
     ViewSet for Document model.
     """
-    permission_classes = [IsAuthenticated, IsSameOrganization]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+    model = Document
     
     serializer_class = DocumentSerializer
     filterset_fields = ['extension', 'size', 'document_type']
@@ -34,9 +44,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
     my_tags = ['Documents']
 
     def get_queryset(self):
-        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
-            return Document.objects.none()
-        return Document.objects.filter(organizacion=self.request.user.organizacion)
+        return self.get_queryset_filtrado_por_organizacion()
     
     @transaction.atomic
     def perform_create(self, serializer):
@@ -125,15 +133,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
         uso.save()
         instance.delete()
     
-class ProtectedDocumentDownloadView(APIView):
-    permission_classes = [IsAuthenticated, IsSameOrganization]
+class ProtectedDocumentDownloadView(APIView, OrganizacionFiltradaMixin):
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     serializer_class = DocumentSerializer
+    model = Document
     my_tags = ['Documents']
 
     def get_queryset(self):
-        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
-            return Document.objects.none()
-        return Document.objects.filter(organizacion=self.request.user.organizacion)
+        return self.get_queryset_filtrado_por_organizacion()
 
     def get(self, request, pk):
         if not request.user.is_authenticated or not hasattr(request.user, 'organizacion'):
@@ -148,9 +155,8 @@ class ProtectedDocumentDownloadView(APIView):
             raise Http404("No autorizado")
         return FileResponse(doc.archivo.open('rb'))
     
-
 class BulkDownloadZipView(APIView):
-    permission_classes = [IsAuthenticated, IsSameOrganization]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     my_tags = ['Documents']
 
     def post(self, request):

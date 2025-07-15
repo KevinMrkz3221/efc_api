@@ -5,25 +5,48 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 
 from api.record.models import Document
-from core.permissions import IsSameOrganization
-
+from core.permissions import (
+    IsSameOrganization, 
+    IsSameOrganizationDeveloper,
+    IsSameOrganizationAndAdmin,
+    IsSuperUser
+)
 from .serializers import OrganizacionSerializer, UsoAlmacenamientoSerializer
 from .models import Organizacion, UsoAlmacenamiento
 from api.customs.models import Pedimento
 from api.logger.mixins import LoggingMixin
+from mixins.filtrado_organizacion import OrganizacionFiltradaMixin
 
 # Create your views here.
 
-class ViewSetOrganizacion(LoggingMixin, viewsets.ModelViewSet):
+class ViewSetOrganizacion(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltradaMixin):
     """
     ViewSet for Organizacion model.
     """
-    permission_classes = [IsAuthenticated, IsSameOrganization]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+
     queryset = Organizacion.objects.all()
     serializer_class = OrganizacionSerializer
     filterset_fields = ['nombre', 'descripcion']
     
     my_tags = ['Organizaciones']
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
+            return Organizacion.objects.none()
+        
+        if self.request.user.is_superuser:
+            # Superuser can see all organizations
+            return Organizacion.objects.all()
+        
+        if (self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter('developer').exists() or self.request.user.groups.filter('user')) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Importers can only see their own organization
+            return Organizacion.objects.filter(users=self.request.user)
+        
+        if self.request.user.groups.filter(name='importador').exists():
+            return Organizacion.objects.filter(users=self.request.user)
+        
+        return Organizacion.objects.none()
 
 class UsoAlmacenamientoViewSet(LoggingMixin, viewsets.ReadOnlyModelViewSet):
     """
@@ -32,9 +55,30 @@ class UsoAlmacenamientoViewSet(LoggingMixin, viewsets.ReadOnlyModelViewSet):
     """
     queryset = UsoAlmacenamiento.objects.all()
     serializer_class = UsoAlmacenamientoSerializer
-    permission_classes = [IsAuthenticated, IsSameOrganization]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
 
     my_tags = ['Uso de Almacenamiento'] 
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
+            return UsoAlmacenamiento.objects.none()
+        
+
+        if self.request.user.is_superuser:
+            # Superuser can see all storage usage
+            return UsoAlmacenamiento.objects.all()
+        
+        if (self.request.user.groups.filter(name='developer').exists() or 
+            self.request.user.groups.filter(name='admin').exists() or 
+            self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Developers, Admins, and Users can see their organization's storage usage
+            return UsoAlmacenamiento.objects.filter(organizacion=self.request.user.organizacion)
+        
+        if self.request.user.groups.filter(name='importador').exists():
+            # Importers can only see their own organization's storage usage
+            raise PermissionDenied("Los importadores no tienen acceso al uso de almacenamiento.")
+
+        return UsoAlmacenamiento.objects.none()
 
     @action(detail=False, methods=['get'])
     def mi_organizacion(self, request):

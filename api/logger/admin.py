@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from .models import RequestLog, UserActivity, ErrorLog
 import json
-
+from config.settings import SITE_URL
 
 class ReadOnlyAdminMixin:
     """Mixin para hacer que los modelos sean solo lectura en el admin."""
@@ -143,6 +143,7 @@ class ErrorLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
 
 
 # Personalización del admin site
-admin.site.site_header = "EFC V2 - Sistema de Logs"
-admin.site.site_title = "EFC V2 Logs"
-admin.site.index_title = "Administración de Logs del Sistema"
+admin.site.site_header = "EFC V2 "
+admin.site.site_title = "EFC V2"
+admin.site.index_title = "Administración del Sistema"
+admin.site.site_url = SITE_URL

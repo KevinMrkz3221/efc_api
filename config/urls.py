@@ -64,6 +64,8 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    path('jet/', include('jet.urls', 'jet')),
+    path('jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),
     path('admin/', admin.site.urls),
     path('api/v1/', include('api.licence.urls')),
 
@@ -82,5 +84,7 @@ urlpatterns = [
     path('api/v1/datastage/', include('api.datastage.urls')),
     path('api/v1/vucem/', include('api.vucem.urls')),
     path('api/v1/logger/', include('api.logger.urls')),  # Logger app
-    
-] #+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('api/v1/notificaciones/', include('api.notificaciones.urls')),  # Notificaciones app
+    path('api/v1/cards/', include('api.cards.urls')),  # Cards app
+] + static(settings.MEDIA_URL + 'profile_pictures/', document_root=settings.MEDIA_ROOT / 'profile_pictures') \
+  + static(settings.MEDIA_URL + 'membretado/', document_root=settings.MEDIA_ROOT / 'membretado')

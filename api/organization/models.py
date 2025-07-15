@@ -50,8 +50,7 @@ class Organizacion(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     observaciones = models.TextField(null=True, blank=True)
-    membretado = models.ImageField(upload_to='membretado/', null=True, blank=True)
-    membretado_2 = models.ImageField(upload_to='membretado/', null=True, blank=True)
+    
 
     @property
     def espacio_utilizado(self):
@@ -78,3 +77,17 @@ class Organizacion(models.Model):
         verbose_name_plural = "Organizaciones"
         db_table = 'organizacion'
         ordering = ['nombre']
+
+class OrganizacionConfiguracion(models.Model):
+    organizacion = models.OneToOneField(Organizacion, on_delete=models.CASCADE, related_name='configuracion')
+    membretado = models.ImageField(upload_to='membretado/', null=True, blank=True)
+    membretado_2 = models.ImageField(upload_to='membretado/', null=True, blank=True)
+    
+
+    class Meta:
+        verbose_name = "Configuración de Organización"
+        verbose_name_plural = "Configuraciones de Organizaciones"
+        db_table = 'organizacion_configuracion'
+
+    def __str__(self):
+        return f"Configuración de {self.organizacion.nombre}"

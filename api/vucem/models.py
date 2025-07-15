@@ -1,11 +1,16 @@
 from django.db import models
+from api.cuser.models import CustomUser
 import uuid
+
+
+
 # Create your models here.
 class Vucem(models.Model):
     """
     Modelo para almacenar información de VUCEM.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     created_by = models.ForeignKey('cuser.CustomUser', on_delete=models.CASCADE, related_name='vucems_created', help_text="Usuario que creó el VUCEM")
     updated_by = models.ForeignKey('cuser.CustomUser', on_delete=models.CASCADE, related_name='vucems_updated', null=True, blank=True, help_text="Usuario que actualizó el VUCEM")
     
@@ -29,3 +34,25 @@ class Vucem(models.Model):
 
     def __str__(self):
         return self.organizacion.nombre + ' - ' + str(self.id)
+
+class UsuarioImportador(models.Model):
+    """
+    Modelo para almacenar información de usuarios importadores.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organizacion = models.ForeignKey('organization.Organizacion', on_delete=models.CASCADE, related_name='usuarios_importadores', help_text="Organización a la que pertenece el usuario importador", blank=True, null=True)
+    vucem = models.ForeignKey(Vucem, on_delete=models.CASCADE, related_name='usuarios_importadores', help_text="VUCEM asociado al usuario importador")
+    user = models.ForeignKey('cuser.CustomUser', on_delete=models.CASCADE, related_name='usuarios_importadores', help_text="Usuario de la plataforma asociado al importador")
+    
+    rfc = models.CharField(max_length=13, unique=True, help_text="RFC del usuario importador")
+    
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación del registro")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Fecha de última actualización del registro")
+
+    class Meta:
+        verbose_name = 'Usuario Importador'
+        verbose_name_plural = 'Usuarios Importadores'
+        db_table = 'usuario_importador'
+
+    def __str__(self):
+        return self.nombre + ' - ' + self.rfc

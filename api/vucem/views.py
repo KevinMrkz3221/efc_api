@@ -11,6 +11,12 @@ from .models import Vucem
 from  core.permissions import IsSameOrganizationDeveloper
 from rest_framework import mixins
 
+from core.permissions import (
+    IsSameOrganization, 
+    IsSameOrganizationDeveloper,
+    IsSameOrganizationAndAdmin,
+    IsSuperUser
+)
 
 class CustomVucemPagination(PageNumberPagination):
     """
@@ -32,7 +38,8 @@ class VucemView(mixins.ListModelMixin,
                 mixins.RetrieveModelMixin,
                 viewsets.GenericViewSet):
 
-    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper]
+    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+
     serializer_class = VucemSerializer  
     queryset = Vucem.objects.all()
     pagination_class = CustomVucemPagination

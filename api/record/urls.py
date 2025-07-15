@@ -14,6 +14,7 @@ router = DefaultRouter()
 # from .views import MyViewSet
 # router.register(r'myviewset', MyViewSet, basename='myviewset')
 router.register(r'documents', DocumentViewSet, basename='Document')
+
 # No registres ProtectedDocumentDownloadView en el router, solo como path individual
 
 urlpatterns = [

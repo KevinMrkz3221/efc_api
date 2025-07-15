@@ -15,6 +15,11 @@ from corsheaders.defaults import default_headers
 from datetime import timedelta
 import os
 
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde un archivo .env
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,15 +27,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*b7u3902e^k2&i=pg4hh0*^t=s%)$h9#6u0zjt64d6_ng#c*ei'
+SECRET_KEY = os.getenv('SECRET_KEY', 'your_api_secret_key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True' 
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'host.docker.internal', '192.168.1.195', '74.208.78.59']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost, host.docker.internal, 127.0.0.1').split(',')
+
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:5173/') 
 
 # Application definition
 BASE_APPS = [
+    'jet.dashboard',
+    'jet',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -58,9 +67,12 @@ OWN_APPS = [
     'api.vucem',
     'api.logger',
     'api.notificaciones',
+    'api.reports',
+    'api.cards',
 ]
 
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + OWN_APPS
+JET_INDEX_DASHBOARD = 'core.dashboard.CustomIndexDashboard'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Debe ir antes de CommonMiddleware
@@ -198,14 +210,10 @@ SWAGGER_SETTINGS = {
 }
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:8001",
-    "http://74.208.78.59:5173",
-    "http://74.208.78.59:8001"
-]
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:8001').split(',')
 
 CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'access-control-allow-origin',
     'access-control-allow-credentials',
@@ -221,7 +229,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -238,12 +246,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.tvvkqbpsgaijbcemsfzd',
-        'PASSWORD': 'Soluciones01',
-        'HOST': 'aws-0-us-east-1.pooler.supabase.com',
-        'PORT': '6543',
+        'ENGINE'    : 'django.db.backends.postgresql',
+        'NAME'      : os.getenv('DB_NAME','postgres'),
+        'USER'      : os.getenv('DB_USER', 'postgres.tvvkqbpsgaijbcemsfzd'),
+        'PASSWORD'  : os.getenv('DB_PASSWORD', 'Soluciones01'),
+        'HOST'      : os.getenv('DB_HOST', 'aws-0-us-east-1.pooler.supabase.com'),
+        'PORT'      : os.getenv('DB_PORT', '6543'),
     }
 }
 
@@ -302,3 +310,4 @@ REDOC_SETTINGS = {
    'EXPAND_RESPONSES': 'all',
    'PATH_IN_MIDDLE': True,
 }
+

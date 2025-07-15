@@ -2,47 +2,9 @@ import uuid
 from django.db import models
 
 # Create your models here.
-class Aduana(models.Model):
-    seccion = models.CharField(max_length=10)
-    descripcion = models.CharField(max_length=200)
-
-    def __str__(self):
-        return f"{self.seccion}"
-    
-    class Meta:
-        verbose_name = "Aduana"
-        verbose_name_plural = "Aduanas"
-        db_table = 'aduana'
-        ordering = ['seccion']
-
-class Patente(models.Model):
-    numero = models.CharField(max_length=20)
-    descripcion = models.CharField(max_length=200)
-
-    def __str__(self):
-        return f"{self.numero}"
-
-    class Meta:
-        verbose_name = "Patente"
-        verbose_name_plural = "Patentes"
-        db_table = 'patente'
-        ordering = ['numero']
-       
-class ClavePedimento(models.Model):
-    clave = models.CharField(max_length=10)
-    descripcion = models.CharField(max_length=200)
-
-    def __str__(self):
-        return f"{self.clave}"
-
-    class Meta:
-        verbose_name = "Clave de Pedimento"
-        verbose_name_plural = "Claves de Pedimento"
-        db_table = 'clave_pedimento'
-        ordering = ['clave']
 
 class TipoOperacion(models.Model):
-    tipo = models.CharField(max_length=10)
+    tipo = models.CharField(max_length=100)
     descripcion = models.CharField(max_length=200)
 
     def __str__(self):
@@ -54,19 +16,6 @@ class TipoOperacion(models.Model):
         db_table = 'tipo_operacion'
         ordering = ['tipo']
 
-class Regimen(models.Model):
-    clave = models.CharField(max_length=10)
-    descripcion = models.CharField(max_length=200)
-
-    def __str__(self):
-        return f"{self.clave} - {self.descripcion}"
-
-    class Meta:
-        verbose_name = "Regimen"
-        verbose_name_plural = "Regimenes"
-        db_table = 'regimen'
-        ordering = ['clave']
-
 class Pedimento(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     pedimento = models.CharField(max_length=20, unique=True, help_text="Número de pedimento aduanal")
@@ -75,7 +24,7 @@ class Pedimento(models.Model):
     patente = models.CharField(max_length=20, blank=True, null=True, help_text="Número de patente aduanal")
     aduana = models.CharField(max_length=10, blank=True, null=True, help_text="Clave de la aduana según la clasificación aduanera")
     regimen = models.CharField(max_length=10, blank=True, null=True, help_text="Clave del régimen aduanero según la clasificación aduanera")
-    tipo_operacion = models.BooleanField(default=False, help_text="Indica si es una operación de 1 (importación) o 0 (exportación)")
+    tipo_operacion = models.ForeignKey('TipoOperacion', on_delete=models.SET_NULL, blank=True, null=True, help_text="Tipo de operación del pedimento", related_name='pedimentos')
     clave_pedimento = models.CharField(max_length=10, blank=True, null=True, help_text="Clave del pedimento según la clasificación aduanera")
 
     fecha_inicio = models.DateField(help_text="Fecha de inicio del pedimento", blank=True, null=True)
@@ -115,6 +64,8 @@ class EDocument(models.Model):
     organizacion = models.ForeignKey('organization.Organizacion', on_delete=models.CASCADE, related_name='edocuments', help_text="Organización a la que pertenece el EDocument")
     numero_edocument = models.CharField(max_length=20, unique=True, help_text="Número único del e-documento")
     clave = models.CharField(max_length=10, blank=True, null=True, help_text="Clave del e-documento según la clasificación aduanera")
+    cadena_original = models.TextField(blank=True, null=True, help_text="Cadena original del e-documento")
+    sello_digital = models.TextField(blank=True, null=True, help_text="Firma digital del e-documento")
     descripcion = models.CharField(max_length=200, blank=True, null=True, help_text="Descripción del documento")
     created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación del documento")   
     updated_at = models.DateTimeField(auto_now=True, help_text="Fecha de última actualización del documento")
@@ -127,24 +78,6 @@ class EDocument(models.Model):
         verbose_name_plural = "EDocuments"
         db_table = 'edocs'
         ordering = ['created_at']
-
-class AgenteAduanal(models.Model):
-    id_aduana = models.ForeignKey(Aduana, on_delete=models.CASCADE, related_name='agentes_aduanales')
-    id_patente = models.ForeignKey('Patente', on_delete=models.CASCADE, related_name='agentes_aduanales')
-    nombre = models.CharField(max_length=100)
-    rfc = models.CharField(max_length=13, blank=True, null=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.nombre} - ({self.id_patente})"
-
-    class Meta:
-        verbose_name = "Agente Aduanal"
-        verbose_name_plural = "Agentes Aduanales"
-        db_table = 'agente_aduanal'
-        ordering = ['nombre']
 
 class EstadoDeProcesamiento(models.Model):
     estado = models.CharField(max_length=50)
@@ -204,3 +137,4 @@ class ProcesamientoPedimento(models.Model):
         verbose_name_plural = "Procesamientos de Pedimento"
         db_table = 'procesamiento_pedimento'
         ordering = ['created_at']
+

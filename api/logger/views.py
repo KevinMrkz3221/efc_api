@@ -1,7 +1,8 @@
 from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
+
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -10,11 +11,14 @@ from .models import RequestLog, UserActivity, ErrorLog
 from .serializers import RequestLogSerializer, UserActivitySerializer, ErrorLogSerializer
 from .utils import log_user_activity
 
+from core.permissions import IsSuperUser
+
 class RequestLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = RequestLog.objects.all()
     serializer_class = RequestLogSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, IsSuperUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+
     filterset_fields = ['method', 'status_code', 'user']
     search_fields = ['path', 'ip_address', 'user_agent']
     ordering_fields = ['timestamp', 'response_time', 'status_code']
@@ -42,7 +46,7 @@ class RequestLogViewSet(viewsets.ReadOnlyModelViewSet):
 class UserActivityViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UserActivity.objects.all()
     serializer_class = UserActivitySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSuperUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['action', 'user', 'object_type']
     search_fields = ['description', 'object_id']
@@ -72,7 +76,7 @@ class UserActivityViewSet(viewsets.ReadOnlyModelViewSet):
 class ErrorLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ErrorLog.objects.all()
     serializer_class = ErrorLogSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated, IsSuperUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['level', 'user']
     search_fields = ['message', 'request_path']
