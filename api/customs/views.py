@@ -4,7 +4,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -42,7 +44,7 @@ class CustomPagination(PageNumberPagination):
     """
     page_size = None  # Sin paginación por defecto
     page_size_query_param = 'page_size'
-    max_page_size = 1000  # Límite máximo de seguridad
+    max_page_size = 10000  # Límite máximo de seguridad
     page_query_param = 'page'
     
     def paginate_queryset(self, queryset, request, view=None):
@@ -67,6 +69,7 @@ class CustomPagination(PageNumberPagination):
             
         return super().paginate_queryset(queryset, request, view)
 # Create your views here.
+
 class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltradaMixin): # Pendiente de permisos de creacion
     """
     ViewSet for Pedimento model.
@@ -76,6 +79,11 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltrada
     - page: Número de página (solo si se especifica page_size)
     - page_size: Elementos por página (si NO se especifica, devuelve TODOS los resultados)
     - search: Búsqueda en pedimento, contribuyente, agente_aduanal
+    - pedimento: Filtro por número de pedimento
+    - existe_expediente: Filtro por expediente (True/False)
+    - contribuyente: Filtro por contribuyente
+    - curp_apoderado: Filtro por curp del apoderado
+    - fecha_pago: Filtro por fecha de pago (YYYY-MM-DD)
     - patente: Filtro por patente
     - aduana: Filtro por aduana
     - tipo_operacion: Filtro por tipo de operación
@@ -86,6 +94,11 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltrada
     - /pedimentos/ → Devuelve TODOS los pedimentos
     - /pedimentos/?page_size=10 → Devuelve los primeros 10
     - /pedimentos/?page_size=10&page=2 → Devuelve los pedimentos 11-20
+    - /pedimentos/?pedimento=12345678 → Filtra por número de pedimento
+    - /pedimentos/?existe_expediente=true → Filtra por expediente existente
+    - /pedimentos/?contribuyente=EMPRESA → Filtra por contribuyente
+    - /pedimentos/?curp_apoderado=XXXX → Filtra por curp apoderado
+    - /pedimentos/?fecha_pago=2025-07-18 → Filtra por fecha de pago
     """
     permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
     serializer_class = PedimentoSerializer
@@ -93,7 +106,7 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltrada
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     model = Pedimento
 
-    filterset_fields = ['patente', 'aduana', 'tipo_operacion', 'clave_pedimento']
+    filterset_fields = ['patente', 'aduana', 'tipo_operacion', 'clave_pedimento', 'pedimento', 'existe_expediente', 'contribuyente', 'curp_apoderado', 'fecha_pago']
     search_fields = ['pedimento', 'contribuyente', 'agente_aduanal']
     ordering_fields = ['created_at', 'updated_at', 'pedimento', 'contribuyente']
     ordering = ['-created_at']
@@ -184,6 +197,7 @@ class ViewSetTipoOperacion(LoggingMixin, viewsets.ModelViewSet):
         serializer.save()
 
 class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
+
     """
     ViewSet for ProcesamientoPedimento model.
     Soporta paginación, filtros y búsqueda.
@@ -201,7 +215,7 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaM
     - /procesamientopedimentos/ → Devuelve TODOS los procesamientos
     - /procesamientopedimentos/?page_size=5 → Devuelve los primeros 5
     """
-    permission_classes = [IsAuthenticated, IsSameOrganizationDeveloper, IsSuperUser]
+    permission_classes = [IsAuthenticated, IsSuperUser | IsSameOrganizationDeveloper ]
     serializer_class = ProcesamientoPedimentoSerializer
     pagination_class = CustomPagination
     model = ProcesamientoPedimento
@@ -217,14 +231,16 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaM
         """
         Asigna automáticamente la organización del usuario autenticado al crear un procesamiento de pedimento.
         """
-        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
-            raise ValueError("Usuario no autenticado o sin organización")
-        if not self.request.user.is_superuser or ((self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists()) :
-            raise PermissionDenied("No tienes permisos para crear procesamientos de pedimentos")
-        
+
         if self.request.user.is_superuser:
             # Si es superusuario, permite crear sin organización
             serializer.save()
+
+        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
+            raise ValueError("Usuario no autenticado o sin organización")
+
+        if not self.request.user.is_superuser or ((self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists()) :
+            raise PermissionDenied("No tienes permisos para crear procesamientos de pedimentos")
         
         if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
             # Si es developer, admin o user, asigna la organización del usuario
@@ -232,6 +248,25 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaM
                 raise ValueError("Usuario sin organización")
             
             serializer.save(organizacion=self.request.user.organizacion)
+
+    def perform_update(self, serializer):
+        """
+        Permite actualizar un procesamiento de pedimento, pero solo si el usuario es superusuario o pertenece a la misma organización.
+        """
+        if not self.request.user.is_authenticated:
+            raise ValueError("Usuario no autenticado")
+        
+        if self.request.user.is_superuser:
+            serializer.save()
+            return
+        
+        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Para usuarios normales, usar siempre su organización
+            if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
+                raise ValueError("Usuario sin organización")
+            serializer.save(organizacion=self.request.user.organizacion)
+
+        raise ValueError("Usuario no autenticado o sin permisos para actualizar ProcesamientoPedimento")
     
     my_tags = ['Procesamientos_Pedimentos']
 

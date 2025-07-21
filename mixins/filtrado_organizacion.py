@@ -15,12 +15,18 @@ class FiltroPorOrganizacionMixin:
             return self.model.objects.all()
 
         if (user.groups.filter(name='admin').exists() or user.groups.filter(name='developer').exists()) and user.is_authenticated and user.groups.filter(name='Agente Aduanal').exists():
-            filtro = {f"{self.campo_usuario}__{self.campo_organizacion}": getattr(user, self.campo_organizacion)}
+            model_fields = [f.name for f in self.model._meta.get_fields()]
+            if self.campo_organizacion in model_fields:
+                filtro = {f"{self.campo_organizacion}": getattr(user, self.campo_organizacion)}
+            elif self.campo_usuario in model_fields:
+                filtro = {f"{self.campo_usuario}": user}
+            else:
+                return self.model.objects.none()
             return self.model.objects.filter(**filtro)
 
         if user.groups.filter(name='importador').exists() and getattr(user, 'is_importador', False):
             filtro = {
-                f"{self.campo_usuario}__{self.campo_rfc}": getattr(userz, self.campo_rfc),
+                f"{self.campo_usuario}__{self.campo_rfc}": getattr(user, self.campo_rfc),
                 f"{self.campo_usuario}__{self.campo_organizacion}": getattr(user, self.campo_organizacion)
             }
             return self.model.objects.filter(**filtro)
@@ -50,6 +56,8 @@ class OrganizacionFiltradaMixin:
         }
 
         grupos = self.request.user.groups.values_list('name', flat=True)
+        if self.request.user.is_superuser:
+            return model.objects.all()
 
         if self.request.user.is_authenticated and 'Agente Aduanal' in grupos and ('admin' in grupos or 'developer' in grupos or 'user' in grupos) :
             if 'Agente Aduanal' in grupos:

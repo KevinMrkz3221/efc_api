@@ -146,7 +146,7 @@ class ViewPedimentoServicesUtilInformation(LoggingMixin, APIView, FiltroPorOrgan
 
         # Si es Administrador de la organizacion devuelve todos los servicios de la organizacion
         if self.request.user.is_authenticated and self.request.user.groups.filter(name='admin').exists() and self.request.user.groups.filter(name='Agente Aduanal').exists():
-            return self.request.user.organizacion.procesamiento_pedimentos.all()
+            return ProcesamientoPedimento.objects.filter(pedimento__organizacion=self.request.user.organizacion)
 
         # Si es Desarrollador de la organizacion devuelve todos los servicios de la organizacion
         if self.request.user.is_authenticated and self.request.user.groups.filter(name='developer').exists() and self.request.user.groups.filter(name='Agente Aduanal').exists():

@@ -1,0 +1,176 @@
+// DBML generated from Django models
+// Project: EFC_V2
+
+// Table definitions
+
+Table organizacion {
+  id uuid [pk]
+  licencia int [ref: > licencia.id]
+  is_agente_aduanal boolean
+  nombre varchar(100)
+  rfc varchar(25)
+  titular varchar(200)
+  email varchar(100)
+  telefono varchar(25)
+  estado varchar(50)
+  ciudad varchar(50)
+  is_active boolean
+  is_verified boolean
+  inicio date
+  vencimiento date
+  created_at datetime
+  updated_at datetime
+  observaciones text
+}
+
+Table uso_almacenamiento {
+  id int [pk, increment]
+  organizacion uuid [ref: - organizacion.id, unique]
+  espacio_utilizado bigint
+}
+
+Table organizacion_configuracion {
+  id int [pk, increment]
+  organizacion uuid [ref: - organizacion.id, unique]
+  membretado varchar
+  membretado_2 varchar
+}
+
+Table licencia {
+  id int [pk, increment]
+  nombre varchar(100)
+  descripcion text
+  almacenamiento int
+}
+
+Table customuser {
+  id uuid [pk]
+  organizacion uuid [ref: > organizacion.id]
+  profile_picture varchar
+  is_importador boolean
+  rfc varchar(13)
+  username varchar(150)
+}
+
+Table vucem {
+  id uuid [pk]
+  created_by uuid [ref: > customuser.id]
+  updated_by uuid [ref: > customuser.id]
+  organizacion uuid [ref: > organizacion.id]
+  usuario varchar(100)
+  password varchar(100)
+  patente varchar(100)
+  is_importador boolean
+  acusecove boolean
+  acuseedocument boolean
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table usuarioimportador {
+  id uuid [pk]
+  organizacion uuid [ref: > organizacion.id]
+  vucem uuid [ref: > vucem.id]
+  user uuid [ref: > customuser.id]
+  rfc varchar(13)
+  created_at datetime
+  updated_at datetime
+}
+
+Table datastage {
+  id int [pk, increment]
+  nombre varchar(100)
+  almacenamiento int
+  organizacion uuid [ref: > organizacion.id]
+  archivo varchar
+  created_at datetime
+  updated_at datetime
+}
+
+Table tipo_notificacion {
+  id int [pk, increment]
+  tipo varchar(100)
+  descripcion varchar(200)
+}
+
+Table notificaciones {
+  id int [pk, increment]
+  tipo int [ref: > tipo_notificacion.id]
+  dirigido uuid [ref: > customuser.id]
+  mensaje text
+  fecha_envio datetime
+  created_at datetime
+  visto boolean
+}
+
+Table documenttype {
+  id int [pk, increment]
+  nombre varchar(100)
+}
+
+Table pedimento {
+  id uuid [pk]
+  pedimento varchar(20)
+  organizacion uuid [ref: > organizacion.id]
+  patente varchar(20)
+  aduana varchar(10)
+  regimen varchar(10)
+  tipo_operacion int [ref: > tipo_operacion.id]
+  clave_pedimento varchar(10)
+  fecha_inicio date
+  fecha_fin date
+  fecha_pago date
+  alerta boolean
+  contribuyente varchar(100)
+  agente_aduanal varchar(100)
+  curp_apoderado varchar(18)
+  importe_total decimal(10,2)
+  saldo_disponible decimal(10,2)
+  importe_pedimento decimal(10,2)
+  existe_expediente boolean
+  remesas boolean
+  numero_partidas int
+  numero_operacion varchar(20)
+  created_at datetime
+}
+
+Table tipo_operacion {
+  id int [pk, increment]
+  tipo varchar(100)
+  descripcion varchar(200)
+}
+
+Table document {
+  id uuid [pk]
+  organizacion uuid [ref: > organizacion.id]
+  pedimento uuid [ref: > pedimento.id]
+  archivo varchar(400)
+  document_type int [ref: > documenttype.id]
+  extension varchar(60)
+  size int
+  created_at datetime
+  updated_at datetime
+}
+
+Table logger_request_log {
+  id int [pk, increment]
+  user uuid [ref: > customuser.id]
+  ip_address varchar
+  user_agent text
+  method varchar(10)
+  path varchar(500)
+  query_params text
+  body text
+  status_code int
+  response_time float
+  timestamp datetime
+  referer varchar(500)
+}
+
+Table useractivity {
+  id int [pk, increment]
+  user uuid [ref: > customuser.id]
+  action varchar(20)
+  object_type varchar(100)
+}

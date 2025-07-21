@@ -21,6 +21,7 @@ class TipoOperacionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProcesamientoPedimentoSerializer(serializers.ModelSerializer):
+    organizacion_name = serializers.CharField(source='organizacion.nombre', read_only=True)
     class Meta:
         model = ProcesamientoPedimento
         fields = '__all__'

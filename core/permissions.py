@@ -13,8 +13,8 @@ class IsSameOrganization(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
         # Permite operaciones sobre un objeto específico solo si:
-        # - El objeto pertenece a la misma organización
-        return (obj.organizacion == request.user.organizacion) 
+        # - El objeto pertenece a la misma organización (acceso por usuario relacionado)
+        return (getattr(obj, 'dirigido', None) and obj.dirigido.organizacion == request.user.organizacion)
     
 class IsSameOrganizationAndAdmin(permissions.BasePermission):
     """
@@ -28,8 +28,9 @@ class IsSameOrganizationAndAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # Permite operaciones sobre un objeto específico solo si:
         # - El objeto pertenece a la misma organización
-        return (obj.organizacion == request.user.organizacion) and \
-               request.user.groups.filter(name='admin').exists()
+        return (
+            getattr(obj, 'dirigido', None) and obj.dirigido.organizacion == request.user.organizacion
+        ) and request.user.groups.filter(name='admin').exists()
     
 class IsSameOrganizationDeveloper(permissions.BasePermission):
     """
@@ -43,8 +44,9 @@ class IsSameOrganizationDeveloper(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # Permite operaciones sobre un objeto específico solo si:
         # - El objeto pertenece a la misma organización
-        return (obj.organizacion == request.user.organizacion) and \
-               request.user.groups.filter(name='developer').exists()
+        return (
+            getattr(obj, 'dirigido', None) and obj.dirigido.organizacion == request.user.organizacion
+        ) and request.user.groups.filter(name='developer').exists()
     
 class IsOwnerOrOrgAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):

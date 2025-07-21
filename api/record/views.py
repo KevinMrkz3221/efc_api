@@ -38,32 +38,12 @@ class CustomPagination(PageNumberPagination):
     - Si no se especifica page_size, devuelve todos los resultados (sin paginación)
     - Si se especifica page_size, usa paginación normal
     """
-    page_size = None  # Sin paginación por defecto
+    page_size = None  # Por defecto 10000 por página
     page_size_query_param = 'page_size'
-    max_page_size = 1000  # Límite máximo de seguridad
+    max_page_size = 10000  # Límite máximo de seguridad
     page_query_param = 'page'
     
-    def paginate_queryset(self, queryset, request, view=None):
-        """
-        Si no se especifica page_size en los parámetros, devolver None (sin paginación)
-        Si se especifica, usar paginación normal
-        """
-        # Verificar si se especificó page_size en la query
-        if self.page_size_query_param not in request.query_params:
-            # No hay page_size, devolver None para indicar "sin paginación"
-            return None
-        
-        # Hay page_size, usar paginación normal
-        try:
-            page_size = int(request.query_params[self.page_size_query_param])
-            if page_size <= 0:
-                return None
-            # Establecer el page_size temporalmente para esta request
-            self.page_size = min(page_size, self.max_page_size)
-        except (ValueError, TypeError):
-            return None
-            
-        return super().paginate_queryset(queryset, request, view)
+    # Usar la paginación estándar de DRF, pero con page_size=10000 por defecto y máximo 10000
 
 # Create your views here.
 class DocumentViewSet(viewsets.ModelViewSet, DocumentosFiltradosMixin):
@@ -75,15 +55,19 @@ class DocumentViewSet(viewsets.ModelViewSet, DocumentosFiltradosMixin):
     
     pagination_class = CustomPagination
     serializer_class = DocumentSerializer
-    # Habilitar filtro por pedimento
-    filterset_fields = ['extension', 'size', 'document_type', 'pedimento']
+    # Habilitar filtro por pedimento (UUID) y pedimento_numero (campo pedimento del modelo relacionado)
+    filterset_fields = ['extension', 'size', 'document_type', 'pedimento', 'pedimento__pedimento']
 
-    # Puedes filtrar por pedimento usando: /api/record/documents/?pedimento=<id>
-    
+    # Puedes filtrar por pedimento usando: /api/record/documents/?pedimento=<id> o /api/record/documents/?pedimento__pedimento=<numero>
+    # Ejemplo: /api/record/documents/?pedimento_numero=12345678
     my_tags = ['Documents']
 
     def get_queryset(self):
-        return self.get_queryset_filtrado_por_organizacion()
+        queryset = self.get_queryset_filtrado_por_organizacion()
+        pedimento_numero = self.request.query_params.get('pedimento_numero')
+        if pedimento_numero:
+            queryset = queryset.filter(pedimento__pedimento=pedimento_numero)
+        return queryset
     
     @transaction.atomic
     def perform_create(self, serializer):
