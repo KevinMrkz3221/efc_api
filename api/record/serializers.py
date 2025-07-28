@@ -13,7 +13,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = ('id', 'organizacion', 'pedimento', 'pedimento_numero', 'archivo', 'document_type', 'size', 'extension', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'organizacion', 'size', 'extension', 'created_at', 'updated_at', 'pedimento_numero')
+        read_only_fields = ('id', 'size', 'extension', 'created_at', 'updated_at', 'pedimento_numero')
 
     def get_pedimento_numero(self, obj):
         if obj.pedimento:

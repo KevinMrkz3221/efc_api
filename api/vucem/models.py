@@ -18,6 +18,8 @@ class Vucem(models.Model):
     usuario = models.CharField(max_length=100, unique=True, help_text="Usuario de VUCEM")
     password = models.CharField(max_length=100, help_text="Contraseña de VUCEM")
     patente = models.CharField(max_length=100, unique=True, help_text="Patente de VUCEM")
+    key = models.FileField(upload_to='vucem_keys/', help_text="Llave privada de VUCEM")
+    cer = models.FileField(upload_to='vucem_certs/', help_text="Certificado de VUCEM")
 
     is_importador = models.BooleanField(default=False, help_text="Indica si es importador")
     acusecove = models.BooleanField(default=False, help_text="Indica si generara acusecove")

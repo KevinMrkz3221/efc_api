@@ -3,7 +3,8 @@ from api.customs.models import (
     Pedimento, 
     TipoOperacion, 
     ProcesamientoPedimento, 
-    EDocument
+    EDocument,
+    Cove
 )
 
 from api.record.models import Document  # Asegúrate de importar el modelo Documento
@@ -21,11 +22,20 @@ class TipoOperacionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProcesamientoPedimentoSerializer(serializers.ModelSerializer):
+
+    organizacion = serializers.PrimaryKeyRelatedField(queryset=ProcesamientoPedimento._meta.get_field('organizacion').related_model.objects.all(), required=False)
     organizacion_name = serializers.CharField(source='organizacion.nombre', read_only=True)
     class Meta:
         model = ProcesamientoPedimento
         fields = '__all__'
-        read_only_fields = ('created_at', 'updated_at', 'organizacion')
+        read_only_fields = ('created_at', 'updated_at')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        # Si no es superusuario, hacer organizacion read_only
+        if request and hasattr(request, 'user') and not request.user.is_superuser:
+            self.fields['organizacion'].read_only = True
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -44,3 +54,10 @@ class EDocumentSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and hasattr(request, 'user') and not request.user.is_superuser:
             self.fields['organizacion'].read_only = True
+
+class CoveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cove
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+

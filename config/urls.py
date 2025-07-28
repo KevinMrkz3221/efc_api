@@ -72,7 +72,7 @@ urlpatterns = [
     # JWT Authentication
     path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/v1/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/v1/user/', include('api.cuser.urls')),  # Custom user app
+    path('api/v1/user/', include(('api.cuser.urls', 'cuser'), namespace='cuser')),  # Custom user app
 
     #path('api-auth/', include('rest_framework.urls')),
     path('api/v1/swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

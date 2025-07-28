@@ -28,6 +28,8 @@ from core.permissions import (
     IsSameOrganizationAndAdmin,
     IsSuperUser
 )
+import logging
+logger = logging.getLogger(__name__)
 
 from mixins.filtrado_organizacion import DocumentosFiltradosMixin
 
@@ -50,7 +52,7 @@ class DocumentViewSet(viewsets.ModelViewSet, DocumentosFiltradosMixin):
     """
     ViewSet for Document model.
     """
-    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+    permission_classes = [IsAuthenticated &  (IsSuperUser | IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper )]
     model = Document
     
     pagination_class = CustomPagination
@@ -67,29 +69,34 @@ class DocumentViewSet(viewsets.ModelViewSet, DocumentosFiltradosMixin):
         pedimento_numero = self.request.query_params.get('pedimento_numero')
         if pedimento_numero:
             queryset = queryset.filter(pedimento__pedimento=pedimento_numero)
+
         return queryset
     
     @transaction.atomic
     def perform_create(self, serializer):
-        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
+        user = self.request.user
+        if not user.is_authenticated or not hasattr(user, 'organizacion'):
             raise ValidationError({"error": "Usuario no autenticado o sin organización"})
-        
-        organizacion = self.request.user.organizacion
+
         archivo = self.request.FILES.get('archivo')
-        
         if not archivo:
             raise ValidationError({"archivo": "Se requiere un archivo para subir"})
+
+        # Permitir que el superusuario especifique la organización
+        organizacion = user.organizacion
         
-        # Obtener o crear registro de uso de almacenamiento con bloqueo SELECT FOR UPDATE
+        if self.request.user.is_superuser:
+            organizacion = serializer.validated_data.get('organizacion', organizacion)
+
         uso = UsoAlmacenamiento.objects.select_for_update().get_or_create(
             organizacion=organizacion,
             defaults={'espacio_utilizado': 0}
         )[0]
-        
+
         # Calcular límites
         max_almacenamiento_bytes = organizacion.licencia.almacenamiento * 1024 ** 3
         nuevo_espacio_utilizado = uso.espacio_utilizado + archivo.size
-        
+
         # Validación estricta con raise ValidationError
         if nuevo_espacio_utilizado > max_almacenamiento_bytes:
             espacio_faltante = nuevo_espacio_utilizado - max_almacenamiento_bytes
@@ -103,14 +110,14 @@ class DocumentViewSet(viewsets.ModelViewSet, DocumentosFiltradosMixin):
                 },
                 "codigo": "storage_limit_exceeded"
             }, code=status.HTTP_400_BAD_REQUEST)
-        
+
         # Guardar documento y actualizar espacio atómicamente
         documento = serializer.save(
             organizacion=organizacion,
             size=archivo.size,
             extension=archivo.name.split('.')[-1].lower()
         )
-        
+
         uso.espacio_utilizado = nuevo_espacio_utilizado
         uso.save()
         

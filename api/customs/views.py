@@ -1,17 +1,14 @@
+from config.settings import SERVICE_API_URL
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
-
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
-
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-
-
 from core.permissions import (
     IsSameOrganization, 
     IsSameOrganizationDeveloper,
@@ -23,16 +20,19 @@ from api.customs.models import (
     TipoOperacion,
     ProcesamientoPedimento,
     EDocument,
+    Cove
 )
 from api.customs.serializers import (
     PedimentoSerializer,
     TipoOperacionSerializer,
     ProcesamientoPedimentoSerializer,
     EDocumentSerializer,
+    CoveSerializer
 )
 from api.logger.mixins import LoggingMixin
-from mixins.filtrado_organizacion import OrganizacionFiltradaMixin
+from mixins.filtrado_organizacion import OrganizacionFiltradaMixin, ProcesosPorOrganizacionMixin
 import requests
+
 
 
 class CustomPagination(PageNumberPagination):
@@ -68,8 +68,8 @@ class CustomPagination(PageNumberPagination):
             return None
             
         return super().paginate_queryset(queryset, request, view)
-# Create your views here.
 
+# Create your views here.
 class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltradaMixin): # Pendiente de permisos de creacion
     """
     ViewSet for Pedimento model.
@@ -124,7 +124,7 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltrada
 
         try:
             # Usar el nombre del servicio de Docker Compose en lugar de localhost
-            response = requests.request('POST', 'http://microservice:8001/api/v1/services/pedimento_completo', params={},
+            response = requests.request('POST', f'{SERVICE_API_URL}/services/pedimento_completo', params={},
                 json={
                     'estado': 1,
                     'servicio': 3,
@@ -148,7 +148,7 @@ class ViewSetPedimento(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltrada
                 
         except requests.exceptions.ConnectionError as e:
             print(f"❌ No se pudo conectar al servicio FastAPI: {e}")
-            print("🔧 Verifica que el servicio FastAPI esté corriendo en http://localhost:8001")
+            print(f"🔧 Verifica que el servicio FastAPI esté corriendo en {SERVICE_API_URL}")
         except requests.exceptions.Timeout as e:
             print(f"⏰ Timeout al conectar con el servicio FastAPI: {e}")
         except requests.exceptions.RequestException as e:
@@ -196,7 +196,7 @@ class ViewSetTipoOperacion(LoggingMixin, viewsets.ModelViewSet):
         
         serializer.save()
 
-class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
+class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, ProcesosPorOrganizacionMixin):
 
     """
     ViewSet for ProcesamientoPedimento model.
@@ -219,8 +219,15 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaM
     serializer_class = ProcesamientoPedimentoSerializer
     pagination_class = CustomPagination
     model = ProcesamientoPedimento
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ['pedimento', 'estado', 'servicio', 'tipo_procesamiento']
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = {
+        'pedimento': ['exact'],
+        'pedimento__pedimento': ['exact', 'icontains'],
+        'estado': ['exact'],
+        'servicio': ['exact'],
+        'tipo_procesamiento': ['exact'],
+    }
+    search_fields = ['pedimento__pedimento']
     ordering_fields = ['created_at', 'updated_at']
     ordering = ['-created_at']
     
@@ -229,25 +236,26 @@ class ViewSetProcesamientoPedimento(viewsets.ModelViewSet, OrganizacionFiltradaM
     
     def perform_create(self, serializer):
         """
-        Asigna automáticamente la organización del usuario autenticado al crear un procesamiento de pedimento.
+        Asigna siempre la organización al crear un procesamiento de pedimento.
+        - Para superusuarios: requiere que la organización venga explícitamente en los datos validados.
+        - Para usuarios normales: asigna la organización del usuario autenticado.
         """
+        user = self.request.user
+        if not user.is_authenticated:
+            raise ValueError("Usuario no autenticado")
 
-        if self.request.user.is_superuser:
-            # Si es superusuario, permite crear sin organización
+        # Si es superusuario, debe venir la organización en los datos validados
+        if user.is_superuser:
+            organizacion = serializer.validated_data.get('organizacion', None)
+            if not organizacion:
+                raise ValueError("El superusuario debe especificar una organización al crear el procesamiento de pedimento.")
             serializer.save()
+            return
 
-        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
-            raise ValueError("Usuario no autenticado o sin organización")
-
-        if not self.request.user.is_superuser or ((self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists()) :
-            raise PermissionDenied("No tienes permisos para crear procesamientos de pedimentos")
-        
-        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
-            # Si es developer, admin o user, asigna la organización del usuario
-            if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
-                raise ValueError("Usuario sin organización")
-            
-            serializer.save(organizacion=self.request.user.organizacion)
+        # Para usuarios normales, asignar siempre la organización del usuario
+        if not hasattr(user, 'organizacion') or not user.organizacion:
+            raise ValueError("Usuario sin organización")
+        serializer.save(organizacion=user.organizacion)
 
     def perform_update(self, serializer):
         """
@@ -328,4 +336,61 @@ class ViewSetEDocument(LoggingMixin, viewsets.ModelViewSet, OrganizacionFiltrada
             serializer.save(organizacion=self.request.user.organizacion)
 
         raise ValueError("Usuario no autenticado o sin permisos para actualizar EDocument")
+
+class ViewSetCove(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
+    """
+    ViewSet for Cove model.
+    """
+    permission_classes = [IsAuthenticated &  (IsSuperUser |IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper )]
+    serializer_class = CoveSerializer
+    pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['pedimento', 'numero_cove', 'organizacion']
+    search_fields = ['numero_cove', 'descripcion', 'organizacion']
+    ordering_fields = ['created_at', 'updated_at', 'numero_cove']
+    ordering = ['-created_at']
+    model = Cove
+    my_tags = ['Coves']
+
+    def get_queryset(self):
+        return self.get_queryset_filtrado_por_organizacion()
+
+    def perform_create(self, serializer):
+        """
+        Asigna automáticamente la organización del usuario autenticado al crear un Cove.
+        Para superusuarios, permite especificar una organización diferente.
+        """
+        if not self.request.user.is_authenticated:
+            raise ValueError("Usuario no autenticado")
+        
+        # Si es superusuario y se especifica organizacion en los datos validados
+        if self.request.user.is_superuser:
+            # Permitir que el superusuario especifique la organización
+            serializer.save()
+        
+        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user.groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Para usuarios normales, usar siempre su organización
+            if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
+                raise ValueError("Usuario sin organización")
+            serializer.save(organizacion=self.request.user.organizacion)
+        
+        raise ValueError("Usuario no autenticado o sin permisos para crear Cove")
+
+    def perform_update(self, serializer):
+        """
+        Permite actualizar un Cove, pero solo si el usuario es superusuario o pertenece a la misma organización.
+        """
+        if not self.request.user.is_authenticated:
+            raise ValueError("Usuario no autenticado")
+        
+        # Si es superusuario, permite actualizar sin restricciones
+        if self.request.user.is_superuser:
+            serializer.save()
+            return
+        
+        if (self.request.user.groups.filter(name='developer').exists() or self.request.user.groups.filter(name='admin').exists() or self.request.user .groups.filter(name='user').exists()) and self.request.user.groups.filter(name='Agente Aduanal').exists():
+            # Para usuarios normales, usar siempre su organización
+            if not hasattr(self.request.user, 'organizacion') or not self.request.user.organizacion:
+                raise ValueError("Usuario sin organización")
+            serializer.save(organizacion=self.request.user.organizacion)
 

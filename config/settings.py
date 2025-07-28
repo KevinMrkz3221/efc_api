@@ -9,13 +9,19 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+import os
+import ssl
+import smtplib
 
 from pathlib import Path
 from corsheaders.defaults import default_headers
 from datetime import timedelta
-import os
+
+# --- SOLO PARA DESARROLLO: Desactivar verificación de certificados SSL en SMTP ---
+smtplib.SMTP_SSL.default_context = ssl._create_unverified_context
 
 from dotenv import load_dotenv
+import re
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
@@ -27,15 +33,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'your_api_secret_key')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True' 
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost, host.docker.internal, 127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
-SITE_URL = os.getenv('SITE_URL', 'http://localhost:5173/') 
-
+SITE_URL = os.getenv('SITE_URL') 
+SERVICE_API_URL = os.getenv('SERVICE_API_URL')
 # Application definition
 BASE_APPS = [
     'jet.dashboard',
@@ -211,7 +217,7 @@ SWAGGER_SETTINGS = {
 }
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:8001').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS').split(',')
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -248,11 +254,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE'    : 'django.db.backends.postgresql',
-        'NAME'      : os.getenv('DB_NAME','postgres'),
-        'USER'      : os.getenv('DB_USER', 'postgres.tvvkqbpsgaijbcemsfzd'),
-        'PASSWORD'  : os.getenv('DB_PASSWORD', 'Soluciones01'),
-        'HOST'      : os.getenv('DB_HOST', 'aws-0-us-east-1.pooler.supabase.com'),
-        'PORT'      : os.getenv('DB_PORT', '6543'),
+        'NAME'      : os.getenv('DB_NAME'),
+        'USER'      : os.getenv('DB_USER'),
+        'PASSWORD'  : os.getenv('DB_PASSWORD'),
+        'HOST'      : os.getenv('DB_HOST'),
+        'PORT'      : os.getenv('DB_PORT'),
     }
 }
 
@@ -292,6 +298,17 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'cuser.CustomUser'
+
+# Configuración SMTP para envío de correos electrónicos
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
 
 # Configuración para procesamiento asíncrono nativo de Django
 ASGI_APPLICATION = 'config.asgi.application'

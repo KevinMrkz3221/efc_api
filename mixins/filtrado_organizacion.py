@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 class FiltroPorOrganizacionMixin:
     model = None
     campo_usuario = 'user'
@@ -56,15 +59,13 @@ class OrganizacionFiltradaMixin:
         }
 
         grupos = self.request.user.groups.values_list('name', flat=True)
-        if self.request.user.is_superuser:
-            return model.objects.all()
 
-        if self.request.user.is_authenticated and 'Agente Aduanal' in grupos and ('admin' in grupos or 'developer' in grupos or 'user' in grupos) :
+        if self.request.user.is_authenticated and 'Agente Aduanal' in grupos and (('admin' in grupos or 'developer' in grupos) and 'user' in grupos) :
             if 'Agente Aduanal' in grupos:
                 return model.objects.filter(**filtros_base)
         
         if hasattr(model, self.campo_contribuyente):
-            if self.request.user.is_authenticated and'importador' in grupos and getattr(self.request.user, 'is_importador', False):
+            if self.request.user.is_authenticated and'Importador' in grupos and getattr(self.request.user, 'is_importador', False):
                 filtros_base[f"{self.campo_contribuyente}"] = self.request.user.rfc
                 return model.objects.filter(**filtros_base)
 
@@ -74,11 +75,46 @@ class OrganizacionFiltradaMixin:
 class DocumentosFiltradosMixin:
     model = None
     campo_organizacion = 'organizacion'
-    campo_contribuyente = 'pedimento__contribuyente'  # solo si aplica
+    campo_contribuyente = 'pedimento'  # solo si aplica
 
     def get_queryset_filtrado_por_organizacion(self):
         model = self.model or self.queryset.model
+
+        if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
+            return model.objects.none()
+
+        if self.request.user.is_superuser:
+            return model.objects.all()
+
+        org = self.request.user.organizacion
+        filtros_base = {
+            f"{self.campo_organizacion}": org.id,
+            f"{self.campo_organizacion}__is_active": True,
+            f"{self.campo_organizacion}__is_verified": True,
+        }
+
+        grupos = self.request.user.groups.values_list('name', flat=True)
+
+        if self.request.user.is_authenticated and 'Agente Aduanal' in grupos and ('admin' in grupos or 'developer' in grupos or 'user' in grupos):
+            if 'Agente Aduanal' in grupos:
+                return model.objects.filter(**filtros_base)
         
+        if hasattr(model, self.campo_contribuyente):
+            if self.request.user.is_authenticated and 'Importador' in grupos and getattr(self.request.user, 'is_importador', False):
+                filtros_base[f"{self.campo_contribuyente}__contribuyente"] = self.request.user.rfc
+                return model.objects.filter(**filtros_base)
+
+        # Si no entra en los roles válidos
+        return model.objects.none()
+
+class ProcesosPorOrganizacionMixin:
+    model = None  # Puedes sobreescribir esto en la vista
+    campo_organizacion = 'organizacion'
+    campo_pedimento = 'pedimento'  # solo si aplica
+
+    def get_queryset_filtrado_por_organizacion(self):
+        model = self.model or self.queryset.model
+
         if not self.request.user.is_authenticated or not hasattr(self.request.user, 'organizacion'):
             return model.objects.none()
 
@@ -94,16 +130,16 @@ class DocumentosFiltradosMixin:
 
         grupos = self.request.user.groups.values_list('name', flat=True)
 
-        if self.request.user.is_authenticated and 'Agente Aduanal' in grupos and ('admin' in grupos or 'developer' in grupos or 'user' in grupos):
+
+        if self.request.user.is_authenticated and 'Agente Aduanal' in grupos and ('admin' in grupos or 'developer' in grupos or 'user' in grupos) :
             if 'Agente Aduanal' in grupos:
                 return model.objects.filter(**filtros_base)
         
-        if hasattr(model, self.campo_contribuyente):
-            if self.request.user.is_authenticated and 'importador' in grupos and getattr(self.request.user, 'is_importador', False):
-                filtros_base[f"{self.campo_contribuyente}"] = self.request.user.rfc
+        if hasattr(model, self.campo_pedimento):
+            if self.request.user.is_authenticated and'Importador' in grupos and getattr(self.request.user, 'is_importador', False):
+                filtros_base[f"{self.campo_pedimento}__contribuyente"] = self.request.user.rfc
                 return model.objects.filter(**filtros_base)
 
         # Si no entra en los roles válidos
         return model.objects.none()
-
 

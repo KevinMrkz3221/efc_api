@@ -20,7 +20,7 @@ from api.customs.models import ProcesamientoPedimento
 from api.logger.models import UserActivity, RequestLog
 
 from api.logger.mixins import LoggingMixin
-from mixins.filtrado_organizacion import FiltroPorOrganizacionMixin
+from mixins.filtrado_organizacion import FiltroPorOrganizacionMixin, DocumentosFiltradosMixin
 
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -371,7 +371,7 @@ class RequestLogAnalysis(LoggingMixin, APIView, FiltroPorOrganizacionMixin):
             "logs_filtrados": count_filtrados
         })
 
-class LastDocumentView(LoggingMixin, APIView, FiltroPorOrganizacionMixin):
+class LastDocumentView(LoggingMixin, APIView, DocumentosFiltradosMixin):
     """
         View que obtiene los ultimos 10 documentos agregados.
         Permite filtrar por fecha usando los parámetros ?fecha_inicio=YYYY-MM-DD&fecha_fin=YYYY-MM-DD
@@ -425,7 +425,7 @@ class LastDocumentView(LoggingMixin, APIView, FiltroPorOrganizacionMixin):
         }
     )
     def get_queryset(self):
-        return self.get_queryset_filtrado()
+        return self.get_queryset_filtrado_por_organizacion()
 
     def get(self, request):
         queryset = self.get_queryset()

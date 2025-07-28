@@ -7,7 +7,8 @@ from .views import (
     ViewSetPedimento,
     ViewSetTipoOperacion,
     ViewSetProcesamientoPedimento,
-    ViewSetEDocument
+    ViewSetEDocument,
+    ViewSetCove
 )
 # from .views import YourViewSet  # Import your viewsets here
 
@@ -22,6 +23,7 @@ router.register(r'pedimentos', ViewSetPedimento, basename='Pedimento')
 router.register(r'tiposoperacion', ViewSetTipoOperacion, basename='TipoOperacion')
 router.register(r'procesamientopedimentos', ViewSetProcesamientoPedimento, basename='ProcesamientoPedimento')
 router.register(r'edocuments', ViewSetEDocument, basename='EDocument')
+router.register(r'coves', ViewSetCove, basename='Cove')
 
 # Import your viewsets here
 

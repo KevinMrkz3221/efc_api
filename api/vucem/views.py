@@ -38,7 +38,7 @@ class VucemView(mixins.ListModelMixin,
                 mixins.RetrieveModelMixin,
                 viewsets.GenericViewSet):
 
-    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+    permission_classes = [IsAuthenticated &  (IsSuperUser | IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper )]
 
     serializer_class = VucemSerializer  
     queryset = Vucem.objects.all()

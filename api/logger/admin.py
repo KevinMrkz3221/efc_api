@@ -72,7 +72,7 @@ class RequestLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(UserActivity)
-class UserActivityAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+class UserActivityAdmin(admin.ModelAdmin):
     list_display = [
         'timestamp', 'user_display', 'action', 'object_type', 
         'object_id', 'ip_address'

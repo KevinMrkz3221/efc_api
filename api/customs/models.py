@@ -79,6 +79,22 @@ class EDocument(models.Model):
         db_table = 'edocs'
         ordering = ['created_at']
 
+class Cove(models.Model):
+    pedimento = models.ForeignKey(Pedimento, on_delete=models.CASCADE, related_name='coves', help_text="Pedimento asociado a la cove")
+    organizacion = models.ForeignKey('organization.Organizacion', on_delete=models.CASCADE, related_name='coves', help_text="Organización a la que pertenece la cove")
+    numero_cove = models.CharField(max_length=20, unique=True, help_text="Número único de la cove")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación de la cove")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Fecha de última actualización de la cove")
+
+    def __str__(self):
+        return f"{self.numero_cove} - {self.pedimento.pedimento}"
+
+    class Meta:
+        verbose_name = "Cove"
+        verbose_name_plural = "Coves"
+        db_table = 'coves'
+        ordering = ['created_at']
+
 class EstadoDeProcesamiento(models.Model):
     estado = models.CharField(max_length=50)
 

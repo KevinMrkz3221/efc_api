@@ -26,11 +26,14 @@ class IsSameOrganizationAndAdmin(permissions.BasePermission):
         return request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj):
-        # Permite operaciones sobre un objeto específico solo si:
-        # - El objeto pertenece a la misma organización
-        return (
-            getattr(obj, 'dirigido', None) and obj.dirigido.organizacion == request.user.organizacion
-        ) and request.user.groups.filter(name='admin').exists()
+        # Permite operaciones solo si el usuario es admin, Agente Aduanal o user y la organización coincide
+        allowed_groups = ['admin', 'Agente Aduanal', 'user']
+        user_in_group = request.user.groups.filter(name__in=allowed_groups).exists()
+        if not user_in_group:
+            return False
+        if hasattr(obj, 'organizacion'):
+            return obj.organizacion == request.user.organizacion
+        return False
     
 class IsSameOrganizationDeveloper(permissions.BasePermission):
     """
@@ -42,11 +45,14 @@ class IsSameOrganizationDeveloper(permissions.BasePermission):
         return request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj):
-        # Permite operaciones sobre un objeto específico solo si:
-        # - El objeto pertenece a la misma organización
-        return (
-            getattr(obj, 'dirigido', None) and obj.dirigido.organizacion == request.user.organizacion
-        ) and request.user.groups.filter(name='developer').exists()
+        # Permite operaciones solo si el usuario es developer, Agente Aduanal o user y la organización coincide
+        allowed_groups = ['developer', 'Agente Aduanal', 'user']
+        user_in_group = request.user.groups.filter(name__in=allowed_groups).exists()
+        if not user_in_group:
+            return False
+        if hasattr(obj, 'organizacion'):
+            return obj.organizacion == request.user.organizacion
+        return False
     
 class IsOwnerOrOrgAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):

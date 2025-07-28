@@ -1,13 +1,19 @@
+from .password_reset_utils import send_password_reset_email
+from django.contrib.auth import get_user_model
+from django.utils.encoding import force_str
+
+# Vista para solicitar recuperación de contraseña
+from rest_framework import status
+
 import uuid
 from django.http import FileResponse, Http404
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from rest_framework.views import APIView
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-
 
 from rest_framework.exceptions import PermissionDenied
 from core.permissions import (
@@ -23,6 +29,12 @@ from api.logger.mixins import LoggingMixin
 from api.vucem.models import Vucem
 from mixins.filtrado_organizacion import OrganizacionFiltradaMixin
 
+from .utils import send_activation_email
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from rest_framework.views import APIView
+from django.utils.encoding import force_str
+from django.conf import settings
 
 class CustomPagination(PageNumberPagination):
 
@@ -58,26 +70,43 @@ class CustomPagination(PageNumberPagination):
             
         return super().paginate_queryset(queryset, request, view)
 
-
 class CustomUserViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
     """
     ViewSet for CustomUser model.
     """
-    permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
+    permission_classes = [IsAuthenticated &  (IsSuperUser | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSameOrganization )]
     pagination_class = CustomPagination
     model = CustomUser
     serializer_class = CustomUserSerializer
     filterset_fields = ['username', 'email', 'first_name', 'last_name', 'organizacion', 'is_importador']
     my_tags = ['User Profile']
     
+
     def get_permissions(self):
-        # Only admin and superuser can modify users
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        # Permitir eliminar usuarios solo a admin, Agente Aduanal y user de la misma organización
+        if self.action == 'destroy':
+            user = self.request.user
+            if not (
+                user.is_superuser or
+                user.groups.filter(name='admin').exists() or
+                user.groups.filter(name='Agente Aduanal').exists() or
+                user.groups.filter(name='user').exists()
+            ):
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Solo admin, Agente Aduanal o user pueden eliminar usuarios.")
+        elif self.action in ['create', 'update', 'partial_update']:
             if not (self.request.user.is_superuser or self.request.user.groups.filter(name='admin').exists()):
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied("Solo admin o superusuario pueden modificar usuarios.")
-
         return super().get_permissions()
+
+    def perform_destroy(self, instance):
+        # Solo permitir eliminar usuarios de la misma organización
+        if self.request.user.is_superuser or instance.organizacion == self.request.user.organizacion:
+            instance.delete()
+        else:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Solo puedes eliminar usuarios de tu organización.")
 
     def get_queryset(self):
         # Handle Swagger schema generation where user might be AnonymousUser
@@ -91,23 +120,62 @@ class CustomUserViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
         if self.request.user.groups.filter(name='admin').exists() and self.request.user.groups.filter(name='Agente Aduanal').exists():
             if not self.request.user.organizacion:
                 raise PermissionDenied("Los administradores deben tener una organización asignada para crear usuarios.")
-            serializer.save(organizacion=self.request.user.organizacion)
-        
+            user = serializer.save(organizacion=self.request.user.organizacion, is_active=False)
+            send_activation_email(user, self.request)  # Usa template HTML
+            return
+
         if self.request.user.is_superuser:
             # If superuser, allow creating users without organization
-            serializer.save()
-        
+            user = serializer.save(is_active=False)
+            send_activation_email(user, self.request)  # Usa template HTML
+            return
+
         if self.request.user.groups.filter(name='developer').exists():
             # Developers can create users but must assign an organization
             if not self.request.user.organizacion:
                 raise PermissionDenied("Los desarrolladores deben tener una organización asignada para crear usuarios.")
-            serializer.save(organizacion=self.request.user.organizacion)
-        
+            user = serializer.save(organizacion=self.request.user.organizacion, is_active=False)
+            send_activation_email(user, self.request)  # Usa template HTML
+            return
+
         if self.request.user.groups.filter(name='importador').exists():
             # No puedes crear un usuario si eres importador
             raise PermissionDenied("Los importadores no pueden crear usuarios.")
-        
-        serializer.save(organizacion=self.request.user.organizacion)
+
+        user = serializer.save(organizacion=self.request.user.organizacion, is_active=False)
+        send_activation_email(user, self.request)  # Usa template HTML
+        return
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        """
+        Endpoint para obtener la información del usuario autenticado.
+        GET /api/v1/user/me/
+        """
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+
+class ActivateUserView(APIView):
+    """
+    Vista para activar usuario desde el link enviado por correo.
+    """
+    permission_classes = []  # Permitir acceso público a la activación de usuario
+    my_tags = ['User Authentication']
+
+    def get(self, request, uidb64, token):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            from .models import CustomUser
+            user = CustomUser.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
+            user = None
+        if user is not None and default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            # Aquí puedes redirigir a una página de éxito o login
+            return redirect(settings.SITE_URL + 'login?activated=1')
+        else:
+            return Response({'detail': 'El enlace de activación no es válido o ha expirado.'}, status=400)
 
     def perform_update(self, serializer):
         # Only allow update if user is in the same organization
@@ -122,15 +190,6 @@ class CustomUserViewSet(viewsets.ModelViewSet, OrganizacionFiltradaMixin):
         if password:
             user.set_password(password)
             user.save()
-
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def me(self, request):
-        """
-        Endpoint para obtener la información del usuario autenticado.
-        GET /api/v1/user/me/
-        """
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
 
 class ProfilePictureView(LoggingMixin, APIView):
     permission_classes = [IsAuthenticated &  (IsSameOrganization | IsSameOrganizationAndAdmin | IsSameOrganizationDeveloper | IsSuperUser)]
@@ -148,3 +207,39 @@ class ProfilePictureView(LoggingMixin, APIView):
         
         return FileResponse(user.profile_picture.open('rb'))
 
+class PasswordResetRequestView(APIView):
+    permission_classes = []  # Permitir acceso público a la recuperación de contraseña
+    my_tags = ['User Authentication']
+    def post(self, request):
+        email = request.data.get('email')
+        username = request.data.get('username')
+        if not email or not username:
+            return Response({'detail': 'Se requieren username y email.'}, status=400)
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=email, username=username)
+        except User.DoesNotExist:
+            return Response({'detail': 'No existe usuario con ese username y email.'}, status=404)
+        send_password_reset_email(user, request)  # Usa template HTML
+        return Response({'detail': 'Se ha enviado un correo para restablecer la contraseña.'}, status=status.HTTP_200_OK)
+# Vista para confirmar recuperación de contraseña
+class PasswordResetConfirmView(APIView):
+    permission_classes = []  # Permitir acceso público a la confirmación de recuperación de contraseña
+    my_tags = ['User Authentication']
+    def post(self, request, uidb64, token):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_decode
+        User = get_user_model()
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'detail': 'Enlace inválido.'}, status=400)
+        if not default_token_generator.check_token(user, token):
+            return Response({'detail': 'Token inválido o expirado.'}, status=400)
+        password = request.data.get('password')
+        if not password:
+            return Response({'detail': 'La nueva contraseña es requerida.'}, status=400)
+        user.set_password(password)
+        user.save()
+        return Response({'detail': 'Contraseña restablecida correctamente.'}, status=status.HTTP_200_OK)

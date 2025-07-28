@@ -41,4 +41,4 @@ swagger-spec-validator==3.0.4
 typing_extensions==4.14.0
 uritemplate==4.2.0
 urllib3==2.5.0
-uvicorn==0.32.1
+gunicorn
